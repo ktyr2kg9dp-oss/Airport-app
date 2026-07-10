@@ -127,7 +127,9 @@ Flight mode offers a full search form whose results represent every selection:
 Results show a **summary of your selections** followed by matching flight
 options (airline honours the alliance/specific choice, departure honours the
 chosen hour, dates fall inside the range, and price reflects class + luggage),
-sorted by price.
+sorted by price. Each option also shows two award-redemption alternatives to the
+cash fare: a **full miles** price and a **miles + money** (partial redemption)
+price.
 
 > These flight options are generated to represent your selections. To wire in
 > live flight prices, connect the SerpApi **Google Flights** engine on the

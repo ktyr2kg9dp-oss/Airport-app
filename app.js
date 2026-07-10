@@ -862,6 +862,16 @@
     return AIRLINES;
   }
 
+  /* Award pricing: a full-miles option and a miles + money (partial) option,
+   * derived from the cash fare at ~1.25 cents/mile and rounded to tidy amounts. */
+  function computeAward(price) {
+    const round500 = (n) => Math.round(n / 500) * 500;
+    const fullMiles = round500(price / 0.0125);
+    const partialMiles = round500(fullMiles * 0.6);
+    const copay = Math.round(price * 0.4);
+    return { fullMiles, partialMiles, copay };
+  }
+
   const CABIN_MULT = { Economy: 1, Premium: 1.7, Business: 3.4 };
   const LUGGAGE_LABEL = { hand: "🎒 Hand luggage", bag1: "🧳 1×23 kg", bag2: "🧳 2nd 23 kg" };
 
@@ -907,6 +917,7 @@
         date: flightDate.toISOString().slice(0, 10),
         depMinutes: depHour * 60 + depMin,
         durationMin, stops, cabin: sel.cabin, luggage: sel.luggage, price,
+        award: computeAward(price),
       });
     }
     // Cheapest first.
@@ -981,7 +992,9 @@
           </div>
           <div class="flight-cost">
             <div class="amt">$${f.price.toLocaleString()}</div>
-            <div class="per">${escapeHtml(airportLabel(f.origin))} → ${escapeHtml(airportLabel(f.destination))}</div>
+            <div class="per">cash</div>
+            <div class="award">or <b>${f.award.fullMiles.toLocaleString()}</b> miles</div>
+            <div class="award">or <b>${f.award.partialMiles.toLocaleString()}</b> mi + $${f.award.copay.toLocaleString()}</div>
           </div>
         </article>`;
     });

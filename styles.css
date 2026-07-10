@@ -33,24 +33,16 @@ body {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
 }
-.brand-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  font-weight: 800;
-  font-size: 22px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+.brand-logo {
+  height: 148px;
+  width: auto;
+  display: block;
+  background: #fff;
+  border-radius: 18px;
+  padding: 8px 18px;
   box-shadow: var(--shadow);
-}
-.brand-name {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
 }
 .tagline {
   margin: 8px 0 0;
@@ -305,6 +297,8 @@ body {
 .flight-cost { text-align: right; }
 .flight-cost .amt { font-size: 22px; font-weight: 800; }
 .flight-cost .per { color: var(--muted); font-size: 12px; }
+.flight-cost .award { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.flight-cost .award b { color: var(--accent); font-weight: 700; }
 
 .search-summary {
   background: var(--card);
