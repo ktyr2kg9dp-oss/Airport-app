@@ -255,6 +255,10 @@ body {
   padding: 10px 14px;
   font-size: 13px;
 }
+.notice.notice-info {
+  background: rgba(79, 140, 255, 0.1);
+  border-color: var(--accent);
+}
 
 .hotel-card {
   display: grid;

@@ -81,7 +81,7 @@ async function handleSearch(url, res) {
     }
 
     const hotels = (data.properties || [])
-      .map((p, i) => normalizeProperty(p, i))
+      .map((p, i) => normalizeProperty(p, i, { city, checkin, checkout }))
       .filter((h) => h && h.offers.length > 0);
 
     return json(res, 200, {
@@ -95,11 +95,29 @@ async function handleSearch(url, res) {
 }
 
 /*
+ * Booking links that carry the hotel name AND the searched dates, so clicking
+ * "Reserve" opens the provider on the exact dates the user searched (rather than
+ * the site's default dates, which may look sold out).
+ */
+function datedProviderLink(source, hotelName, ctx) {
+  const q = encodeURIComponent(`${hotelName}, ${ctx.city}`);
+  const { checkin: ci, checkout: co } = ctx;
+  const s = String(source || "").toLowerCase();
+  if (s.includes("booking"))
+    return `https://www.booking.com/searchresults.html?ss=${q}&checkin=${ci}&checkout=${co}`;
+  if (s.includes("expedia"))
+    return `https://www.expedia.com/Hotel-Search?destination=${q}&startDate=${ci}&endDate=${co}`;
+  if (s.includes("hotels.com"))
+    return `https://www.hotels.com/Hotel-Search?destination=${q}&checkIn=${ci}&checkOut=${co}`;
+  return null; // unknown source → fall back to the link SerpApi supplied
+}
+
+/*
  * Turn one SerpApi Google Hotels property into the shape the front-end uses:
  * { id, name, lat, lng, reviewScore, reviewCount, pricePerNight, offers[] }.
- * Offers carry the real per-provider price and booking link.
+ * Offers carry the real per-provider price and a dated booking link.
  */
-function normalizeProperty(p, i) {
+function normalizeProperty(p, i, ctx) {
   const gps = p.gps_coordinates || {};
   const lowest = p.rate_per_night && p.rate_per_night.extracted_lowest;
 
@@ -108,7 +126,7 @@ function normalizeProperty(p, i) {
     .map((pr) => ({
       provider: pr.source || "Provider",
       perNight: pr.rate_per_night && pr.rate_per_night.extracted_lowest,
-      url: pr.link || p.link || "",
+      url: datedProviderLink(pr.source, p.name, ctx) || pr.link || p.link || "",
     }))
     .filter((o) => o.perNight != null && o.url);
 

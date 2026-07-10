@@ -365,6 +365,9 @@
     if (!ctx.live_mode && ctx.notice) {
       html += `<div class="notice">${escapeHtml(ctx.notice)}</div>`;
     }
+    if (ctx.live_mode) {
+      html += `<div class="notice notice-info">Prices are indicative — sourced from Google Hotels and updated periodically. Rooms can sell out or change price, so always confirm the price and availability on the booking site before you pay. Each “Reserve” link opens your exact dates.</div>`;
+    }
 
     hotels.forEach((h, i) => {
       const meta = [];
