@@ -300,10 +300,49 @@
     }
 
     hotels = rankHotels(hotels, criteriaOrder);
+    let top = hotels.slice(0, 5);
 
-    renderHotelResults(hotels.slice(0, 5), {
+    // Deep mode: replace cleanliness/service with scores computed from each
+    // hotel's real Google reviews, then re-rank the shortlist with those numbers.
+    const deep = document.getElementById("hotel-deep").checked;
+    let deepNote;
+    if (deep && live_mode) {
+      showEmpty("🔬 Analyzing real reviews for the top hotels… this can take several seconds.");
+      top = await deepAnalyze(top, cityKey);
+      top = rankHotels(top, criteriaOrder);
+    } else if (deep && !live_mode) {
+      deepNote = "Deep review analysis needs the live server (with your API key). Showing summary scores instead.";
+    }
+
+    renderHotelResults(top, {
       cityKey, poi, checkin, checkout, nights, live_mode, notice, asOf, maxDistance,
+      deep: deep && live_mode, deepNote,
     });
+  }
+
+  /* For each shortlisted hotel, ask the backend to analyse its real reviews and
+   * merge the resulting cleanliness/service scores. Runs in parallel. */
+  async function deepAnalyze(hotels, city) {
+    return Promise.all(hotels.map(async (h) => {
+      try {
+        const params = new URLSearchParams({ hotel: h.name, city });
+        const res = await fetch(`/api/reviews?${params.toString()}`, { headers: { Accept: "application/json" } });
+        if (!res.ok) return h;
+        const d = await res.json();
+        if (!d.ok) return h;
+        return {
+          ...h,
+          cleanliness: d.cleanliness != null ? d.cleanliness : h.cleanliness,
+          service: d.service != null ? d.service : h.service,
+          deep: true,
+          reviewsAnalyzed: d.reviewsAnalyzed,
+          cleanlinessCount: d.cleanlinessCount,
+          serviceCount: d.serviceCount,
+        };
+      } catch (_) {
+        return h; // network issue → keep summary score
+      }
+    }));
   }
 
   /* Ask the backend for live prices. Returns null if unreachable (e.g. the app
@@ -399,6 +438,13 @@
       html += `<div class="notice notice-info">Prices are indicative — sourced from Google Hotels and updated periodically. Rooms can sell out or change price, so always confirm the price and availability on the booking site before you pay. Each “Reserve” link opens your exact dates.</div>`;
     }
 
+    if (ctx.deep) {
+      html += `<div class="notice notice-info">🔬 Cleanliness &amp; service scores below were computed from these hotels' real Google reviews (with the number of reviews that mentioned each topic). Topics not mentioned in any review are left blank.</div>`;
+    }
+    if (ctx.deepNote) {
+      html += `<div class="notice">${escapeHtml(ctx.deepNote)}</div>`;
+    }
+
     // Warn if a chosen ranking criterion had no data for any shown hotel.
     const missing = criteriaOrder.filter((c) =>
       (c === "cleanliness" || c === "service") && hotels.every((h) => h[c] == null));
@@ -417,10 +463,12 @@
         meta.push(`<span>📍 <b>${h.distance.toFixed(1)} km</b> from ${escapeHtml(ctx.poi.name)}</span>`);
       }
       if (h.cleanliness != null) {
-        meta.push(`<span>🧼 Cleanliness <b>${h.cleanliness}%</b></span>`);
+        const from = h.deep && h.cleanlinessCount ? ` <span>(${h.cleanlinessCount} reviews)</span>` : "";
+        meta.push(`<span>🧼 Cleanliness <b>${h.cleanliness}%</b>${from}</span>`);
       }
       if (h.service != null) {
-        meta.push(`<span>🛎️ Service <b>${h.service}%</b></span>`);
+        const from = h.deep && h.serviceCount ? ` <span>(${h.serviceCount} reviews)</span>` : "";
+        meta.push(`<span>🛎️ Service <b>${h.service}%</b>${from}</span>`);
       }
 
       // Live results carry real per-provider offers; sample results synthesise them.
@@ -456,7 +504,7 @@
           <div class="rank-badge">${i + 1}</div>
           <div class="hotel-main">
             <div class="hotel-top">
-              <h3>${escapeHtml(h.name)}</h3>
+              <h3>${escapeHtml(h.name)}${h.deep && (h.cleanliness != null || h.service != null) ? '<span class="deep-tag">🔬 Real-review analysis</span>' : ""}</h3>
               <div class="hotel-from"><span>from</span> <b>$${fromPrice.toLocaleString()}</b><small>/night</small></div>
             </div>
             <div class="hotel-meta">${meta.join("")}</div>

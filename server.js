@@ -37,8 +37,20 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/search") {
     return handleSearch(url, res);
   }
+  if (url.pathname === "/api/reviews") {
+    return handleReviews(url, res);
+  }
   return serveStatic(url, res);
 });
+
+/* Build a SerpApi request URL for any engine (all engines share /search.json). */
+function serpUrl(params) {
+  const base = process.env.SERPAPI_BASE || "https://serpapi.com/search.json";
+  const u = new URL(base);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  u.searchParams.set("api_key", SERPAPI_KEY);
+  return u.toString();
+}
 
 /* ------------------------------------------------------------------ */
 /* Live price search                                                  */
@@ -92,6 +104,89 @@ async function handleSearch(url, res) {
     });
   } catch (err) {
     return json(res, 200, { live: false, reason: `Lookup failed: ${err.message}`, hotels: [] });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Deep review analysis                                               */
+/* ------------------------------------------------------------------ */
+
+// Cache analysed hotels for 6 hours to avoid re-spending API quota.
+const reviewCache = new Map();
+const REVIEW_TTL_MS = 6 * 60 * 60 * 1000;
+
+const CLEAN_RE = /\b(clean|cleanlin|dirty|spotless|filth|tidy|hygien|stain|dust|mould|mold|smell|smelly|odou?r|grime|grimy|immaculate)\b/i;
+const SERVICE_RE = /\b(service|staff|reception|receptionist|concierge|helpful|unhelpful|rude|friendly|welcom|host|hosts|manager|attentive|courteous|polite|professional)\b/i;
+
+/*
+ * Analyse real review text + star ratings. For each review that MENTIONS a
+ * topic, its star rating decides the sentiment (>=4 positive, <=2 negative,
+ * 3 neutral/ignored). Score = positive / (positive + negative) of the mentions.
+ */
+function analyzeReviews(reviews) {
+  let cP = 0, cN = 0, sP = 0, sN = 0;
+  for (const r of reviews || []) {
+    const rating = typeof r.rating === "number" ? r.rating : null;
+    const text = String(r.snippet || r.description || r.text || "");
+    if (rating == null || !text) continue;
+    if (CLEAN_RE.test(text)) { if (rating >= 4) cP++; else if (rating <= 2) cN++; }
+    if (SERVICE_RE.test(text)) { if (rating >= 4) sP++; else if (rating <= 2) sN++; }
+  }
+  const pct = (p, n) => (p + n) > 0 ? Math.round((p / (p + n)) * 100) : null;
+  return {
+    cleanliness: pct(cP, cN), service: pct(sP, sN),
+    cleanlinessCount: cP + cN, serviceCount: sP + sN,
+  };
+}
+
+/*
+ * Analyse one hotel's real Google reviews: find the place on Google Maps to get
+ * its data_id, pull up to two pages of reviews, then score cleanliness/service
+ * from the actual review text. Results are cached.
+ */
+async function handleReviews(url, res) {
+  const hotel = url.searchParams.get("hotel") || "";
+  const city = url.searchParams.get("city") || "";
+
+  if (!SERPAPI_KEY) return json(res, 200, { ok: false, reason: "no-key" });
+  if (!hotel) return json(res, 400, { ok: false, reason: "missing hotel" });
+
+  const cacheKey = `${hotel}|${city}`.toLowerCase();
+  const hit = reviewCache.get(cacheKey);
+  if (hit && hit.expires > Date.now()) return json(res, 200, hit.value);
+
+  try {
+    // 1) Locate the place to obtain a Google Maps data_id.
+    const maps = await (await fetch(serpUrl({
+      engine: "google_maps", q: `${hotel}, ${city}`, type: "search", hl: "en",
+    }))).json();
+    const dataId =
+      (maps.place_results && maps.place_results.data_id) ||
+      (Array.isArray(maps.local_results) && maps.local_results[0] && maps.local_results[0].data_id);
+    if (!dataId) {
+      const v = { ok: false, reason: "place-not-found" };
+      return json(res, 200, v);
+    }
+
+    // 2) Pull up to two pages of real reviews.
+    let reviews = [];
+    let token = null;
+    for (let page = 0; page < 2; page++) {
+      const params = { engine: "google_maps_reviews", data_id: dataId, hl: "en" };
+      if (token) params.next_page_token = token;
+      const rr = await (await fetch(serpUrl(params))).json();
+      if (Array.isArray(rr.reviews)) reviews = reviews.concat(rr.reviews);
+      token = rr.serpapi_pagination && rr.serpapi_pagination.next_page_token;
+      if (!token) break;
+    }
+
+    // 3) Score from the actual review text.
+    const analysis = analyzeReviews(reviews);
+    const value = { ok: true, ...analysis, reviewsAnalyzed: reviews.length };
+    reviewCache.set(cacheKey, { value, expires: Date.now() + REVIEW_TTL_MS });
+    return json(res, 200, value);
+  } catch (err) {
+    return json(res, 200, { ok: false, reason: err.message });
   }
 }
 

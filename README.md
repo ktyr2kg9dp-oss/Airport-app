@@ -65,6 +65,20 @@ breakdown (shown as "% positive"). When Google doesn't report them for a hotel,
 that hotel simply omits those badges. You can also cap results by a **maximum
 distance** from the point of interest (0–99 km, decimals allowed).
 
+### Deep mode: analyze real reviews
+Tick **🔬 Analyze real reviews** to score cleanliness & service from each
+hotel's *actual* Google reviews instead of Google's summary. For the top 5
+results the server finds the hotel on Google Maps, pulls up to two pages of
+individual reviews, and scores each topic from the review text + star rating
+(a review is a positive "cleanliness" mention if it talks about cleanliness and
+is rated ≥4 stars, negative if ≤2). The badge then shows the score and how many
+reviews mentioned that topic, e.g. `Cleanliness 92% (14 reviews)`.
+
+This is more accurate but **slower** and uses **more API calls** (≈2 per hotel),
+so it's off by default. Results are cached server-side for 6 hours to save
+quota. Deep mode requires the live server + key (it does nothing in sample
+mode).
+
 The app normalises each metric to a 0–1 score, weights them by priority
 (3 / 2 / 1), and returns the **top 5 hotels**.
 
