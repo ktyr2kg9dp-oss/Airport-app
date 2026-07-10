@@ -39,6 +39,19 @@ const NATO_MEMBERS = [
 ];
 
 /* ------------------------------------------------------------------ */
+/* European countries (for the "Europe" scope option)                 */
+/* Broad geographic Europe, incl. non-EU (UK, Norway, Switzerland…).  */
+/* ------------------------------------------------------------------ */
+const EUROPE_MEMBERS = [
+  "Albania", "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czechia",
+  "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+  "Iceland", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta",
+  "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland", "Portugal",
+  "Romania", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland",
+  "Türkiye", "Ukraine", "United Kingdom",
+];
+
+/* ------------------------------------------------------------------ */
 /* Countries + official procurement portals                           */
 /* `portal(q)` builds a deep link that pre-fills the search term.      */
 /* `nato` marks the special "all NATO members" option.                */
@@ -59,6 +72,14 @@ const COUNTRIES = [
       { name: "NCIA — Doing Business", url: () => `https://www.ncia.nato.int/business.html` },
       { name: "NATO ACT — Innovation", url: () => `https://www.act.nato.int/activities/innovation/` },
       { name: "DIANA (Defence Innovation Accelerator)", url: () => `https://www.diana.nato.int/challenges.html` },
+    ],
+  },
+  {
+    code: "EUROPE", name: "Europe (all)", flag: "🇪🇺", europe: true,
+    portals: [
+      { name: "EU TED (pan-European tenders)", url: (q) => tedUrl(q) },
+      { name: "EDA — European Defence Agency", url: () => `https://eda.europa.eu/what-we-do/all-activities/procurement` },
+      { name: "UK Find a Tender", url: (q) => `https://www.find-tender.service.gov.uk/Search/Results?Keywords=${encodeURIComponent(q)}` },
     ],
   },
   {
@@ -387,6 +408,7 @@ function detectDomains(text) {
 function resolveCountries(code) {
   if (!code || code === "ANY") return null;
   if (code === "NATO") return new Set(NATO_MEMBERS);
+  if (code === "EUROPE") return new Set(EUROPE_MEMBERS);
   const c = COUNTRIES.find((x) => x.code === code);
   return c ? new Set([c.name]) : null;
 }
@@ -418,7 +440,7 @@ function searchCompanies(interest, countryCode) {
 /* Export for Node + attach to window for the browser                 */
 /* ------------------------------------------------------------------ */
 const BD_DATA = {
-  NOTICE_TYPES, NATO_MEMBERS, COUNTRIES, DOMAINS, COMPANIES,
+  NOTICE_TYPES, NATO_MEMBERS, EUROPE_MEMBERS, COUNTRIES, DOMAINS, COMPANIES,
   detectDomains, resolveCountries, searchCompanies, tedUrl,
 };
 

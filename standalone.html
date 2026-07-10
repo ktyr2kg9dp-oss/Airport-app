@@ -235,6 +235,19 @@ const NATO_MEMBERS = [
 ];
 
 /* ------------------------------------------------------------------ */
+/* European countries (for the "Europe" scope option)                 */
+/* Broad geographic Europe, incl. non-EU (UK, Norway, Switzerland…).  */
+/* ------------------------------------------------------------------ */
+const EUROPE_MEMBERS = [
+  "Albania", "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czechia",
+  "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+  "Iceland", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta",
+  "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland", "Portugal",
+  "Romania", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland",
+  "Türkiye", "Ukraine", "United Kingdom",
+];
+
+/* ------------------------------------------------------------------ */
 /* Countries + official procurement portals                           */
 /* `portal(q)` builds a deep link that pre-fills the search term.      */
 /* `nato` marks the special "all NATO members" option.                */
@@ -255,6 +268,14 @@ const COUNTRIES = [
       { name: "NCIA — Doing Business", url: () => `https://www.ncia.nato.int/business.html` },
       { name: "NATO ACT — Innovation", url: () => `https://www.act.nato.int/activities/innovation/` },
       { name: "DIANA (Defence Innovation Accelerator)", url: () => `https://www.diana.nato.int/challenges.html` },
+    ],
+  },
+  {
+    code: "EUROPE", name: "Europe (all)", flag: "🇪🇺", europe: true,
+    portals: [
+      { name: "EU TED (pan-European tenders)", url: (q) => tedUrl(q) },
+      { name: "EDA — European Defence Agency", url: () => `https://eda.europa.eu/what-we-do/all-activities/procurement` },
+      { name: "UK Find a Tender", url: (q) => `https://www.find-tender.service.gov.uk/Search/Results?Keywords=${encodeURIComponent(q)}` },
     ],
   },
   {
@@ -583,6 +604,7 @@ function detectDomains(text) {
 function resolveCountries(code) {
   if (!code || code === "ANY") return null;
   if (code === "NATO") return new Set(NATO_MEMBERS);
+  if (code === "EUROPE") return new Set(EUROPE_MEMBERS);
   const c = COUNTRIES.find((x) => x.code === code);
   return c ? new Set([c.name]) : null;
 }
@@ -614,7 +636,7 @@ function searchCompanies(interest, countryCode) {
 /* Export for Node + attach to window for the browser                 */
 /* ------------------------------------------------------------------ */
 const BD_DATA = {
-  NOTICE_TYPES, NATO_MEMBERS, COUNTRIES, DOMAINS, COMPANIES,
+  NOTICE_TYPES, NATO_MEMBERS, EUROPE_MEMBERS, COUNTRIES, DOMAINS, COMPANIES,
   detectDomains, resolveCountries, searchCompanies, tedUrl,
 };
 
@@ -662,7 +684,7 @@ if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
   function sampleOpps(q,country,types){
     var topic=q||"defense capability";
     var c=D.COUNTRIES.find(function(x){return x.code===country;});
-    var agency=country==="US"?"Dept. of Defense":country==="NATO"?"NSPA / NCIA":((c?c.name:"")+" MoD");
+    var agency=country==="US"?"Dept. of Defense":country==="NATO"?"NSPA / NCIA":country==="EUROPE"?"EU / EDA (member MoDs)":((c?c.name:"")+" MoD");
     var all=[
       {code:"r",title:"Sources Sought — "+topic+" capabilities & market survey",type:"Sources Sought",days:21,sole:"Small Business"},
       {code:"i",title:"Request for Information (RFI): "+topic+" solutions",type:"RFI / Special Notice",days:30,sole:""},
@@ -675,7 +697,7 @@ if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
   }
   function googleLink(interest,code){
     var c=D.COUNTRIES.find(function(x){return x.code===code;});
-    var where=code==="NATO"?"NATO":(c?c.name:"");
+    var where=code==="NATO"?"NATO":code==="EUROPE"?"Europe":(c?c.name:"");
     return "https://www.google.com/search?q="+encodeURIComponent((interest+" defense companies and startups "+where).trim());
   }
 
@@ -697,7 +719,7 @@ if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
     $("summary").innerHTML=
       stat("Competition types", opps.length, "sources sought · RFI · RFP…")+
       stat("Companies", res.companies.length, startups+" startups · "+countries+" countries")+
-      stat("Scope", country==="NATO"?"NATO":(country==="ANY"?"Global":country), (res.domains[0]||"keyword match"));
+      stat("Scope", country==="NATO"?"NATO":country==="EUROPE"?"Europe":(country==="ANY"?"Global":country), (res.domains[0]||"keyword match"));
 
     // opportunities
     $("oppNote").textContent="No free unified API for this jurisdiction from a static page — the links below open the official portal pre-filled with “"+interest+"”. Cards are illustrative examples of the notice types you’ll find there.";

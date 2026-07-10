@@ -155,7 +155,8 @@ function sampleOpportunities(q, country) {
   const topic = q || "defense capability";
   const c = DATA.COUNTRIES.find((x) => x.code === country);
   const agency = country === "US" ? "Dept. of Defense" :
-    country === "NATO" ? "NSPA / NCIA" : `${c ? c.name : ""} MoD`;
+    country === "NATO" ? "NSPA / NCIA" :
+    country === "EUROPE" ? "EU / EDA (member MoDs)" : `${c ? c.name : ""} MoD`;
   const mk = (title, type, days, sole) => ({
     title, agency, type, solNum: "SAMPLE", posted: "", deadline: `${days} days`,
     naics: "", setAside: sole || "", active: true, url: "", sample: true,
@@ -201,7 +202,7 @@ async function handleCompanies(url, res) {
 /* Human Google search link as a fallback / "keep digging" affordance. */
 function googleSearchLink(interest, countryCode) {
   const c = DATA.COUNTRIES.find((x) => x.code === countryCode);
-  const where = countryCode === "NATO" ? "NATO" : c ? c.name : "";
+  const where = countryCode === "NATO" ? "NATO" : countryCode === "EUROPE" ? "Europe" : c ? c.name : "";
   const q = `${interest} defense companies and startups ${where}`.trim();
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
@@ -209,7 +210,7 @@ function googleSearchLink(interest, countryCode) {
 /* Optional live enrichment via SerpApi Google search. */
 async function serpCompanySearch(interest, countryCode) {
   const c = DATA.COUNTRIES.find((x) => x.code === countryCode);
-  const where = countryCode === "NATO" ? "" : c ? c.name : "";
+  const where = countryCode === "NATO" ? "" : countryCode === "EUROPE" ? "Europe" : c ? c.name : "";
   const q = `${interest} defense company OR startup ${where}`.trim();
   const base = process.env.SERPAPI_BASE || "https://serpapi.com/search.json";
   const api = new URL(base);
