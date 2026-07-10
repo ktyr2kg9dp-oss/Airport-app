@@ -10,6 +10,56 @@
     distance: "Distance from point of interest",
   };
 
+  /*
+   * Reservation providers. Each result shows three booking "outcomes", one per
+   * provider, each with its own price and a working deep-link that runs a real
+   * search for that hotel and the chosen dates on the provider's site.
+   * `mult` gives each provider a characteristic price level; a per-hotel jitter
+   * (added in buildOffers) keeps the cheapest provider from always being the same.
+   */
+  const PROVIDERS = [
+    {
+      name: "Booking.com", mult: 1.00,
+      url: (q, ci, co) =>
+        `https://www.booking.com/searchresults.html?ss=${q}` +
+        (ci && co ? `&checkin=${ci}&checkout=${co}` : ""),
+    },
+    {
+      name: "Expedia", mult: 1.06,
+      url: (q, ci, co) =>
+        `https://www.expedia.com/Hotel-Search?destination=${q}` +
+        (ci && co ? `&startDate=${ci}&endDate=${co}` : ""),
+    },
+    {
+      name: "Hotels.com", mult: 0.96,
+      url: (q, ci, co) =>
+        `https://www.hotels.com/Hotel-Search?destination=${q}` +
+        (ci && co ? `&checkIn=${ci}&checkOut=${co}` : ""),
+    },
+  ];
+
+  /*
+   * Build the three reservation outcomes for one hotel. Prices are derived
+   * deterministically from the hotel's nightly price so they are stable between
+   * reloads. Returns objects sorted cheapest-first.
+   */
+  function buildOffers(hotel, cityName, checkin, checkout, nights) {
+    const query = encodeURIComponent(`${hotel.name}, ${cityName}`);
+    return PROVIDERS
+      .map((p) => {
+        // Deterministic per hotel+provider jitter in the range ~0.95–1.07.
+        const rng = seededRandom(hashString(hotel.id + p.name));
+        const perNight = Math.round(hotel.pricePerNight * p.mult * (0.95 + rng() * 0.12));
+        return {
+          provider: p.name,
+          perNight,
+          total: nights ? perNight * nights : null,
+          url: p.url(query, checkin, checkout),
+        };
+      })
+      .sort((a, b) => a.perNight - b.perNight);
+  }
+
   /* ---------------------------------------------------------------- */
   /* Mode switch (Flight / Hotel)                                      */
   /* ---------------------------------------------------------------- */
@@ -284,18 +334,32 @@
       if (h.distance != null) {
         meta.push(`<span>📍 <b>${h.distance.toFixed(1)} km</b> from ${escapeHtml(ctx.poi.name)}</span>`);
       }
-      const total = ctx.nights ? h.pricePerNight * ctx.nights : null;
+
+      const offers = buildOffers(h, city.name, ctx.checkin, ctx.checkout, ctx.nights);
+      const fromPrice = offers[0].perNight; // cheapest of the three outcomes
+
+      const offerRows = offers.map((o, idx) => `
+        <li class="offer${idx === 0 ? " is-best" : ""}">
+          <span class="offer-provider">${escapeHtml(o.provider)}${idx === 0 ? ' <em>Best price</em>' : ""}</span>
+          <span class="offer-price">
+            <b>$${o.perNight}</b><span class="offer-per"> / night</span>
+            ${o.total ? `<span class="offer-total">$${o.total.toLocaleString()} total</span>` : ""}
+          </span>
+          <a class="offer-link" href="${o.url}" target="_blank" rel="noopener noreferrer">Reserve →</a>
+        </li>`).join("");
+
       html += `
         <article class="hotel-card">
           <div class="rank-badge">${i + 1}</div>
           <div class="hotel-main">
-            <h3>${escapeHtml(h.name)}</h3>
+            <div class="hotel-top">
+              <h3>${escapeHtml(h.name)}</h3>
+              <div class="hotel-from"><span>from</span> <b>$${fromPrice}</b><small>/night</small></div>
+            </div>
             <div class="hotel-meta">${meta.join("")}</div>
-          </div>
-          <div class="hotel-price">
-            <div class="amt">$${h.pricePerNight}</div>
-            <div class="per">per night</div>
-            ${total ? `<div class="total">$${total.toLocaleString()} total</div>` : ""}
+            <ul class="offers" aria-label="Reservation options for ${escapeHtml(h.name)}">
+              ${offerRows}
+            </ul>
           </div>
         </article>`;
     });

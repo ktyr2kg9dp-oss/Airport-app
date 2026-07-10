@@ -33,6 +33,14 @@ priority (1st = most important):
 The app normalises each metric to a 0–1 score, weights them by priority
 (3 / 2 / 1), and returns the **top 5 hotels**.
 
+### Reservation options
+Every hotel result lists **three ways to reserve it** — one per booking
+provider (Booking.com, Expedia, Hotels.com). Each option shows its own
+**per-night and total price** and a **Reserve** link that opens a real search
+for that hotel and your dates on the provider's site. Options are sorted
+cheapest-first and the lowest is tagged **Best price**; the card headline shows
+the resulting "from" price.
+
 > Selecting **Distance from point of interest** requires a point of interest to
 > be chosen; the app will prompt you if it's missing.
 

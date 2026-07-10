@@ -238,9 +238,9 @@ body {
 
 .hotel-card {
   display: grid;
-  grid-template-columns: 54px 1fr auto;
+  grid-template-columns: 54px 1fr;
   gap: 14px;
-  align-items: center;
+  align-items: start;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -258,7 +258,17 @@ body {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #fff;
 }
+.hotel-main { min-width: 0; }
+.hotel-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
 .hotel-main h3 { margin: 0 0 4px; font-size: 17px; }
+.hotel-from { white-space: nowrap; color: var(--muted); font-size: 13px; }
+.hotel-from b { color: var(--text); font-size: 20px; font-weight: 800; }
+.hotel-from small { color: var(--muted); font-size: 12px; }
 .hotel-meta {
   display: flex;
   flex-wrap: wrap;
@@ -268,10 +278,57 @@ body {
 }
 .hotel-meta .star { color: var(--warn); }
 .hotel-meta b { color: var(--text); }
-.hotel-price { text-align: right; }
-.hotel-price .amt { font-size: 22px; font-weight: 800; }
-.hotel-price .per { color: var(--muted); font-size: 12px; }
-.hotel-price .total { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* Reservation outcomes */
+.offers {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.offer {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 9px;
+}
+.offer.is-best { background: rgba(53, 196, 122, 0.12); }
+.offer-provider { font-weight: 600; font-size: 14px; }
+.offer-provider em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--good);
+  border: 1px solid var(--good);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.offer-price { text-align: right; font-size: 14px; color: var(--muted); }
+.offer-price b { color: var(--text); font-size: 16px; }
+.offer-per { font-size: 12px; }
+.offer-total { display: block; font-size: 11px; color: var(--muted); }
+.offer-link {
+  justify-self: end;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  padding: 8px 14px;
+  border-radius: 9px;
+  white-space: nowrap;
+  transition: filter 0.15s ease;
+}
+.offer-link:hover { filter: brightness(1.1); }
+.offer-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .empty, .flight-card {
   background: var(--card);
@@ -297,5 +354,10 @@ body {
 @media (max-width: 600px) {
   .field-row { flex-direction: column; }
   .hotel-card { grid-template-columns: 44px 1fr; }
-  .hotel-price { grid-column: 2; text-align: left; }
+  .hotel-top { flex-direction: column; gap: 2px; }
+  .offer {
+    grid-template-columns: 1fr auto;
+    row-gap: 6px;
+  }
+  .offer-link { grid-column: 2; grid-row: 1 / span 2; }
 }
