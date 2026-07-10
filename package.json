@@ -1,0 +1,13 @@
+{
+  "name": "oflights",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Oflights — find flights and hotels with live prices",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

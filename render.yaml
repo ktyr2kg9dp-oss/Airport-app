@@ -1,0 +1,13 @@
+# Render Blueprint — deploys Oflights as a free always-on web app.
+# In Render: New + → Blueprint → pick this repo → paste your SERPAPI_KEY when
+# prompted → Apply. You'll get a public URL you can open from any phone.
+services:
+  - type: web
+    name: oflights
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: SERPAPI_KEY
+        sync: false   # you enter this secret in the Render dashboard, not in the repo
