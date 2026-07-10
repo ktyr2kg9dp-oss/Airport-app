@@ -1,4 +1,4 @@
-# BD Scout
+# O·Biz — Business Growth
 
 A **business-development scouting tool** for defense & dual-use technology.
 
