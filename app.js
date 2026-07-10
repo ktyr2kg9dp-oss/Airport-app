@@ -936,6 +936,13 @@
     return a ? `${a.code} (${a.city})` : code;
   }
 
+  /* A booking link that opens a flight search for this exact route, date and
+   * cabin on Google Flights, where the ticket can be purchased. */
+  function bookingUrl(f) {
+    const q = `Flights from ${f.origin} to ${f.destination} on ${f.date} ${f.cabin} class ${f.airline.name}`;
+    return "https://www.google.com/travel/flights?q=" + encodeURIComponent(q);
+  }
+
   function renderFlights(flights, sel) {
     // Summary that represents the selections.
     const airlinesText = sel.airmode === "any" ? "Any airline"
@@ -979,14 +986,19 @@
       tags.push(`<span class="tag">📅 ${escapeHtml(f.date)}</span>`);
       f.luggage.forEach((l) => tags.push(`<span class="tag">${LUGGAGE_LABEL[l]}</span>`));
 
+      const book = bookingUrl(f);
       html += `
         <article class="flight-result">
-          <div class="airline-badge">${escapeHtml(f.airline.code)}</div>
+          <div class="airline-badge" title="${escapeHtml(f.airline.name)}">
+            <span class="airline-code">${escapeHtml(f.airline.code)}</span>
+            <img src="https://pics.avs.io/120/120/${encodeURIComponent(f.airline.code)}.png" alt="${escapeHtml(f.airline.name)} logo" loading="lazy" onerror="this.remove()" />
+          </div>
           <div class="flight-body">
+            <div class="flight-airline"><b>${escapeHtml(f.airline.name)}</b>${f.airline.alliance ? ` <span class="al">· ${escapeHtml(f.airline.alliance)}</span>` : ""}</div>
             <div class="flight-route">${escapeHtml(f.origin)}<span class="arrow">→</span>${escapeHtml(f.destination)}</div>
             <div class="flight-times">
               <b>${minutesToHHMM(f.depMinutes)}</b> – <b>${minutesToHHMM(arrMin)}${plusDays ? `<sup>+${plusDays}</sup>` : ""}</b>
-              · ${fmtDuration(f.durationMin)} · ${escapeHtml(f.airline.name)}${f.airline.alliance ? ` · ${escapeHtml(f.airline.alliance)}` : ""}
+              · ${fmtDuration(f.durationMin)}
             </div>
             <div class="flight-tags">${tags.join("")}</div>
           </div>
@@ -995,6 +1007,7 @@
             <div class="per">cash</div>
             <div class="award">or <b>${f.award.fullMiles.toLocaleString()}</b> miles</div>
             <div class="award">or <b>${f.award.partialMiles.toLocaleString()}</b> mi + $${f.award.copay.toLocaleString()}</div>
+            <a class="book-btn" href="${book}" target="_blank" rel="noopener noreferrer">Book →</a>
           </div>
         </article>`;
     });
