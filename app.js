@@ -245,8 +245,15 @@
     const poi = (POIS[cityKey] || []).find(
       (p) => p.name.toLowerCase() === poiInput.value.trim().toLowerCase()
     );
+
+    // Optional max-distance filter (0–99 km from the point of interest).
+    const maxDistance = parseMaxDistance(document.getElementById("hotel-maxdist").value);
+
     if (criteriaOrder.includes("distance") && !poi) {
       return showEmpty("Choose a point of interest to rank hotels by distance, or remove that criterion.");
+    }
+    if (maxDistance != null && !poi) {
+      return showEmpty("Choose a point of interest to filter by maximum distance, or clear the max distance field.");
     }
 
     const nights = nightsBetween(checkin, checkout);
@@ -280,10 +287,20 @@
       return showEmpty("Live results didn't include map coordinates, so distance ranking isn't available for this search. Remove the distance criterion or try another city.");
     }
 
+    // Apply the max-distance filter. Hotels without a known distance can't be
+    // verified as within range, so they are excluded when a limit is set.
+    if (maxDistance != null) {
+      const within = hotels.filter((h) => h.distance != null && h.distance <= maxDistance);
+      if (!within.length) {
+        return showEmpty(`No hotels found within ${maxDistance} km of ${poi.name}. Try increasing the maximum distance.`);
+      }
+      hotels = within;
+    }
+
     hotels = rankHotels(hotels, criteriaOrder);
 
     renderHotelResults(hotels.slice(0, 5), {
-      cityKey, poi, checkin, checkout, nights, live_mode, notice, asOf,
+      cityKey, poi, checkin, checkout, nights, live_mode, notice, asOf, maxDistance,
     });
   }
 
@@ -357,6 +374,10 @@
       ? ` · Prices as of ${formatAsOf(ctx.asOf)}`
       : "";
 
+    const distText = ctx.maxDistance != null && ctx.poi
+      ? ` · Within ${ctx.maxDistance} km of ${escapeHtml(ctx.poi.name)}`
+      : "";
+
     const badge = ctx.live_mode
       ? `<span class="live-badge live-on">● Live prices</span>`
       : `<span class="live-badge live-off">Sample prices</span>`;
@@ -364,7 +385,7 @@
     let html = `
       <div class="results-head">
         <h2>Top 5 hotels in ${escapeHtml(city.name)} ${badge}</h2>
-        <span class="sub">Ranked by: ${escapeHtml(criteriaText)}${dateText}${asOfText}</span>
+        <span class="sub">Ranked by: ${escapeHtml(criteriaText)}${distText}${dateText}${asOfText}</span>
       </div>`;
 
     if (!ctx.live_mode && ctx.notice) {
@@ -471,6 +492,16 @@
     if (!checkin || !checkout) return 0;
     const d = (new Date(checkout) - new Date(checkin)) / 86400000;
     return d > 0 ? Math.round(d) : 0;
+  }
+
+  /* Parse the max-distance input: returns a number clamped to 0–99, or null
+   * when the field is empty / not a valid number (meaning "no limit"). */
+  function parseMaxDistance(raw) {
+    const s = String(raw).trim();
+    if (s === "") return null;
+    const n = Number(s);
+    if (!isFinite(n)) return null;
+    return Math.min(99, Math.max(0, n));
   }
 
   function formatAsOf(iso) {

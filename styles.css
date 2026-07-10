@@ -131,6 +131,15 @@ body {
   box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.2);
 }
 .field input::placeholder { color: #6f77a3; }
+.field.field-narrow { flex: 0 0 300px; }
+.field-note {
+  flex: 1;
+  align-self: flex-end;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
 
 /* Autocomplete */
 .suggestions {
