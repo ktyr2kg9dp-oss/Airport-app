@@ -326,7 +326,7 @@
           <div class="rest-main">
             <div class="rest-top">
               <h3>${escapeHtml(r.name)} <span class="cuisine">${escapeHtml(r.cuisine)}</span></h3>
-              <a class="reserve-link" href="${reserveUrl(r, ctx.party, ctx.dateStr, first.min)}" target="_blank" rel="noopener noreferrer">${r.ontopo ? "Book on Ontopo" : "Reserve"} →</a>
+              <a class="reserve-link" href="${reserveUrl(r, ctx.party, ctx.dateStr, first.min)}" target="_blank" rel="noopener noreferrer">Book on ${escapeHtml(providerFor(r).label)} →</a>
             </div>
             <div class="rest-meta">${meta.join("")}</div>
             ${availability}
@@ -338,21 +338,50 @@
     initResultsMap(mapPoints, ctx);
   }
 
-  /* Deep-link to the reservation provider, pre-filled with the restaurant,
-   * party size, date and time. Israeli restaurants book on Ontopo; elsewhere we
-   * fall back to OpenTable. */
+  /*
+   * Table-booking providers. Each restaurant carries a `provider` (and,
+   * optionally, a `bookingSlug` for its exact page); the reserve link opens the
+   * right platform pre-filled with the restaurant, party, date and time. New
+   * providers can be added here without touching the rest of the app.
+   */
+  const PROVIDERS = {
+    ontopo: {
+      label: "Ontopo",
+      url: (r, party, date, time) =>
+        `https://ontopo.com/en/il?${qs({ q: r.name, size: party, date, time })}`,
+    },
+    ironbooking: {
+      label: "Ironbooking",
+      url: (r) =>
+        r.bookingSlug
+          ? `https://www.ironbooking.com/book/${encodeURIComponent(r.bookingSlug)}`
+          : "https://www.ironbooking.com/",
+    },
+    tabit: {
+      label: "Tabit",
+      url: (r) => `https://tabit.rest/?${qs({ q: r.name })}`,
+    },
+    opentable: {
+      label: "OpenTable",
+      url: (r, party, date, time) =>
+        `https://www.opentable.com/s?${qs({ covers: party, dateTime: `${date}T${time}`, term: r.name })}`,
+    },
+  };
+
+  // Restaurants without an explicit provider (the synthetic fallback set) use OpenTable.
+  function providerFor(rest) {
+    return PROVIDERS[rest.provider] || PROVIDERS.opentable;
+  }
+
+  function qs(obj) {
+    return new URLSearchParams(
+      Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, String(v)]))
+    ).toString();
+  }
+
+  /* Deep-link to the restaurant's booking provider, pre-filled where supported. */
   function reserveUrl(rest, party, dateStr, slotMin) {
-    const time = minToTime(slotMin);
-    if (rest.ontopo) {
-      const params = new URLSearchParams({ q: rest.name, size: String(party), date: dateStr, time });
-      return `https://ontopo.com/en/il?${params.toString()}`;
-    }
-    const params = new URLSearchParams({
-      covers: String(party),
-      dateTime: `${dateStr}T${time}`,
-      term: rest.name,
-    });
-    return `https://www.opentable.com/s?${params.toString()}`;
+    return providerFor(rest).url(rest, party, dateStr, minToTime(slotMin));
   }
 
   /* ---------------------------------------------------------------- */

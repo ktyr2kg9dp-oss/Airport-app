@@ -180,8 +180,12 @@ const OPEN_CHOICES = [17 * 60, 17 * 60 + 30, 18 * 60, 18 * 60 + 30, 19 * 60]; //
 const CLOSE_CHOICES = [22 * 60, 22 * 60 + 30, 23 * 60, 23 * 60 + 30, 24 * 60]; // 22:00–24:00
 
 /*
- * Real Israeli restaurants that take reservations on Ontopo (https://ontopo.com).
- * Fields: [name, cuisine, emoji, lat, lng, area, priceLevel, rating, reviews].
+ * Real Israeli restaurants and the table-booking platform each one uses.
+ * Fields: [name, cuisine, emoji, lat, lng, area, priceLevel, rating, reviews,
+ *          provider?, bookingSlug?]. `provider` defaults to "ontopo"; other
+ * supported providers include "ironbooking", "tabit" and "opentable". When a
+ * `bookingSlug` is given the reserve link opens that exact booking page,
+ * otherwise it opens the provider's search prefilled with the restaurant.
  * Coordinates are approximate (neighbourhood level). Availability + table mix
  * are generated deterministically from the name so results are stable.
  */
@@ -220,6 +224,7 @@ const ISRAEL_RAW = [
   // ---- Haifa ----
   ["Fattoush", "Middle Eastern", "🧆", 32.8156, 34.9885, "Haifa", 2, 4.4, 2300],
   ["HaNamal 24", "Chef", "🍽️", 32.8210, 35.0010, "Haifa", 3, 4.4, 900],
+  ["Eataliano Dalla Costa", "Italian", "🍝", 32.8205, 34.9935, "Haifa", 3, 4.5, 1400, "ironbooking", "eataliano-dalla-costa"],
   // ---- Akko (Acre) ----
   ["Uri Buri", "Seafood", "🦞", 32.9195, 35.0698, "Akko", 4, 4.7, 6100],
   ["El Marsa", "Seafood", "🦞", 32.9205, 35.0705, "Akko", 3, 4.5, 800],
@@ -230,7 +235,8 @@ const ISRAEL_RAW = [
 /* Turn a raw row into a full restaurant, deterministically filling the table
  * mix + opening hours from the restaurant's name. */
 function buildIsraeliRestaurant(row) {
-  const [name, cuisine, emoji, lat, lng, area, priceLevel, rating, reviewCount] = row;
+  const [name, cuisine, emoji, lat, lng, area, priceLevel, rating, reviewCount,
+    provider = "ontopo", bookingSlug = null] = row;
   const rng = seededRandom(hashString(name));
   const tables = makeTables(rng);
   const openMin = OPEN_CHOICES[Math.floor(rng() * OPEN_CHOICES.length)];
@@ -242,7 +248,7 @@ function buildIsraeliRestaurant(row) {
     tables, openMin, closeMin,
     lastSeatMin: closeMin - DINING_MINUTES,
     maxSeats: Math.max(...tables.map((t) => t.seats)),
-    ontopo: true,
+    provider, bookingSlug,
   };
 }
 
