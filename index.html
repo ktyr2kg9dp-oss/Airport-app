@@ -3,151 +3,77 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Oflights &middot; Find Flights &amp; Hotels</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <title>BD Scout · Competitions &amp; Companies</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="app-header">
     <div class="brand">
-      <span class="brand-mark">O</span>
-      <span class="brand-name">Oflights</span>
+      <span class="brand-mark">BD</span>
+      <span class="brand-name">BD&nbsp;Scout</span>
     </div>
-    <p class="tagline">Locate flights &amp; hotels anywhere in the world</p>
+    <p class="tagline">Find active government competitions &amp; the companies building your tech</p>
   </header>
 
   <main class="container">
-    <!-- Primary selector: Flight or Hotel -->
-    <section class="mode-switch" aria-label="Search type">
-      <button type="button" class="mode-btn is-active" data-mode="hotel" aria-pressed="true">
-        <span class="mode-ico">🏨</span> Hotel
-      </button>
-      <button type="button" class="mode-btn" data-mode="flight" aria-pressed="false">
-        <span class="mode-ico">✈️</span> Flight
-      </button>
+    <!-- ---------------- Search panel ---------------- -->
+    <section class="panel search-panel" aria-label="Search">
+      <div class="field">
+        <label for="interest">Your interest area</label>
+        <input id="interest" type="text" autocomplete="off"
+               placeholder="e.g. drones, helicopters, counter-UAS, loitering munitions…" />
+        <div class="chips" id="chips" aria-hidden="true"></div>
+      </div>
+
+      <div class="row">
+        <div class="field grow">
+          <label for="country">Country / alliance</label>
+          <select id="country"></select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button id="searchBtn" class="primary" type="button">Search</button>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>Competition types</summary>
+        <div class="types" id="types"></div>
+      </details>
+
+      <p class="status" id="status"></p>
     </section>
 
-    <!-- ================= HOTEL SEARCH ================= -->
-    <form id="hotel-form" class="search-card" autocomplete="off">
-      <div class="field-row">
-        <!-- City -->
-        <div class="field autocomplete" data-field="city">
-          <label for="hotel-city">City</label>
-          <input type="text" id="hotel-city" placeholder="Type any city — e.g. Paris" aria-autocomplete="list" aria-expanded="false" />
-          <ul class="suggestions" role="listbox" hidden></ul>
+    <!-- ---------------- Results ---------------- -->
+    <div class="results" id="results" hidden>
+      <!-- Competitions -->
+      <section class="panel">
+        <div class="section-head">
+          <h2>🎯 Active competitions</h2>
+          <span class="badge" id="oppBadge"></span>
         </div>
+        <p class="section-note" id="oppNote"></p>
+        <div class="portals" id="portals"></div>
+        <div class="cards" id="opps"></div>
+      </section>
 
-        <!-- Point of interest -->
-        <div class="field autocomplete" data-field="poi">
-          <label for="hotel-poi">Point of interest</label>
-          <input type="text" id="hotel-poi" placeholder="Any landmark, museum or area — e.g. Eiffel Tower" aria-autocomplete="list" aria-expanded="false" />
-          <ul class="suggestions" role="listbox" hidden></ul>
+      <!-- Companies -->
+      <section class="panel">
+        <div class="section-head">
+          <h2>🏭 Companies &amp; startups</h2>
+          <span class="badge" id="coBadge"></span>
         </div>
-      </div>
-
-      <div class="field-row">
-        <!-- Check in -->
-        <div class="field">
-          <label for="hotel-checkin">Check in</label>
-          <input type="date" id="hotel-checkin" />
-        </div>
-        <!-- Check out -->
-        <div class="field">
-          <label for="hotel-checkout">Check out</label>
-          <input type="date" id="hotel-checkout" />
-        </div>
-      </div>
-
-      <div class="field-row">
-        <!-- Max distance from point of interest -->
-        <div class="field field-narrow">
-          <label for="hotel-maxdist">Max distance from point of interest (km)</label>
-          <input type="number" id="hotel-maxdist" min="0" max="99" step="0.1" inputmode="decimal" placeholder="e.g. 0.5" />
-        </div>
-        <p class="field-note">Only hotels within this many kilometres of your point of interest are shown. Decimals allowed (e.g. 0.1, 0.5, 2). Leave blank for no limit (0–99).</p>
-      </div>
-
-      <!-- Ranking criteria -->
-      <fieldset class="criteria">
-        <legend>Rank results by your top&nbsp;3 criteria <span class="hint">(pick up to 3 in priority order)</span></legend>
-        <div class="criteria-options">
-          <label class="chip"><input type="checkbox" name="criteria" value="price" /> <span>💰 Price per night (lowest first)</span></label>
-          <label class="chip"><input type="checkbox" name="criteria" value="review" /> <span>⭐ Review score (highest first)</span></label>
-          <label class="chip"><input type="checkbox" name="criteria" value="distance" /> <span>📍 Distance from point of interest (nearest first)</span></label>
-          <label class="chip"><input type="checkbox" name="criteria" value="cleanliness" /> <span>🧼 Cleanliness reviews (highest first)</span></label>
-          <label class="chip"><input type="checkbox" name="criteria" value="service" /> <span>🛎️ Service reviews (highest first)</span></label>
-        </div>
-        <p class="criteria-order" aria-live="polite"></p>
-      </fieldset>
-
-      <label class="deep-toggle">
-        <input type="checkbox" id="hotel-map" checked />
-        <span><b>🗺️ Show results on a map</b> — plot the hotels (and your point of interest) on an interactive map above the list.</span>
-      </label>
-
-      <label class="deep-toggle">
-        <input type="checkbox" id="hotel-deep" />
-        <span><b>🔬 Analyze real reviews</b> — read each hotel's actual Google reviews to score cleanliness &amp; service (deeper &amp; more accurate, but slower and uses more of your API quota). Applies to the top&nbsp;5 results.</span>
-      </label>
-
-      <button type="submit" class="search-btn">Search hotels</button>
-    </form>
-
-    <!-- ================= FLIGHT SEARCH ================= -->
-    <form id="flight-form" class="search-card" autocomplete="off" hidden>
-      <div class="field-row">
-        <div class="field autocomplete" data-field="from">
-          <label for="flight-from">From (city)</label>
-          <input type="text" id="flight-from" placeholder="e.g. New York" aria-autocomplete="list" aria-expanded="false" />
-          <ul class="suggestions" role="listbox" hidden></ul>
-        </div>
-        <div class="field autocomplete" data-field="to">
-          <label for="flight-to">To (city)</label>
-          <input type="text" id="flight-to" placeholder="e.g. London" aria-autocomplete="list" aria-expanded="false" />
-          <ul class="suggestions" role="listbox" hidden></ul>
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="flight-depart">Depart</label>
-          <input type="date" id="flight-depart" />
-        </div>
-        <div class="field">
-          <label for="flight-return">Return</label>
-          <input type="date" id="flight-return" />
-        </div>
-      </div>
-      <button type="submit" class="search-btn">Search flights</button>
-    </form>
-
-    <!-- ================= RESULTS ================= -->
-    <section id="results" class="results" aria-live="polite"></section>
+        <p class="section-note" id="coNote"></p>
+        <div class="cards" id="companies"></div>
+        <div class="web" id="web"></div>
+        <a class="keepdigging" id="searchLink" target="_blank" rel="noopener" hidden>Keep digging on Google →</a>
+      </section>
+    </div>
   </main>
 
   <footer class="app-footer">
-    <p>Oflights demo · City &amp; point-of-interest data is loaded from a bundled dataset. See <code>README.md</code> to connect the live Google Places API.</p>
+    <p>Competitions from official portals (live SAM.gov when a key is set). Company list is curated &amp; illustrative — verify before outreach.</p>
   </footer>
-
-  <!-- Photo gallery lightbox -->
-  <div id="gallery" class="gallery" hidden>
-    <div class="gallery-backdrop" data-close></div>
-    <div class="gallery-dialog" role="dialog" aria-modal="true" aria-label="Hotel photos">
-      <div class="gallery-head">
-        <span class="gallery-title"></span>
-        <button type="button" class="gallery-close" data-close aria-label="Close photos">✕</button>
-      </div>
-      <div class="gallery-stage">
-        <button type="button" class="gallery-nav prev" data-prev aria-label="Previous photo">‹</button>
-        <img class="gallery-main" alt="Hotel photo" />
-        <button type="button" class="gallery-nav next" data-next aria-label="Next photo">›</button>
-        <span class="gallery-counter"></span>
-      </div>
-      <div class="gallery-thumbs"></div>
-    </div>
-  </div>
 
   <script src="data.js"></script>
   <script src="app.js"></script>

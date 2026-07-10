@@ -1,8 +1,8 @@
 {
-  "name": "oflights",
+  "name": "bd-scout",
   "version": "1.0.0",
   "private": true,
-  "description": "Oflights — find flights and hotels with live prices",
+  "description": "BD Scout — find active government competitions and the companies (incl. startups) building your tech",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

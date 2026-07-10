@@ -1,13 +1,17 @@
-# Render Blueprint — deploys Oflights as a free always-on web app.
-# In Render: New + → Blueprint → pick this repo → paste your SERPAPI_KEY when
-# prompted → Apply. You'll get a public URL you can open from any phone.
+# Render Blueprint — deploys BD Scout as a free always-on web app.
+# In Render: New + → Blueprint → pick this repo → (optionally) paste your
+# SAM_API_KEY and SERPAPI_KEY when prompted → Apply. You'll get a public URL.
+# Both keys are optional: without them the app still works using the official
+# portal deep-links, curated company database, and labeled sample notices.
 services:
   - type: web
-    name: oflights
+    name: bd-scout
     runtime: node
     plan: free
     buildCommand: npm install
     startCommand: node server.js
     envVars:
+      - key: SAM_API_KEY
+        sync: false   # free key from https://open.gsa.gov/api/get-opportunities-public-api/
       - key: SERPAPI_KEY
-        sync: false   # you enter this secret in the Render dashboard, not in the repo
+        sync: false   # optional — enables live web company enrichment
