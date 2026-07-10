@@ -87,6 +87,7 @@ async function handleSearch(url, res) {
     return json(res, 200, {
       live: hotels.length > 0,
       reason: hotels.length ? "" : "No priced hotels returned for this search.",
+      asOf: new Date().toISOString(),
       hotels,
     });
   } catch (err) {
@@ -136,9 +137,22 @@ function normalizeProperty(p, i, ctx) {
   }
 
   offers.sort((a, b) => a.perNight - b.perNight);
-  offers = offers.slice(0, 3); // three cheapest reservation outcomes
+  offers = offers.slice(0, 3); // three cheapest priced reservation outcomes
 
   if (offers.length === 0) return null;
+
+  // Always surface 3 options: if Google returned fewer priced sources, top up
+  // with dated links to the major providers not already listed. These carry no
+  // price (marked compareOnly) — the user checks the live rate on the site.
+  const MAJORS = ["Booking.com", "Expedia", "Hotels.com"];
+  const key = (s) => String(s).toLowerCase().replace(".com", "");
+  const have = offers.map((o) => key(o.provider));
+  for (const m of MAJORS) {
+    if (offers.length >= 3) break;
+    if (have.some((h) => h.includes(key(m)) || key(m).includes(h))) continue;
+    offers.push({ provider: m, perNight: null, url: datedProviderLink(m, p.name, ctx), compareOnly: true });
+    have.push(key(m));
+  }
 
   return {
     id: `serp-${i}`,

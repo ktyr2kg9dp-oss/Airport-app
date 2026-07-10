@@ -257,13 +257,14 @@
     showEmpty("Searching live prices…");
     const live = await fetchLiveHotels(cityKey, checkin, checkout);
 
-    let hotels, live_mode, notice;
+    let hotels, live_mode, notice, asOf;
     if (live && live.hotels.length) {
       hotels = live.hotels.map((h) => ({
         ...h,
         distance: poi && h.lat != null && h.lng != null ? distanceKm(h, poi) : null,
       }));
       live_mode = true;
+      asOf = live.asOf;
     } else {
       hotels = getHotelsForCity(cityKey).map((h) => ({
         ...h,
@@ -282,7 +283,7 @@
     hotels = rankHotels(hotels, criteriaOrder);
 
     renderHotelResults(hotels.slice(0, 5), {
-      cityKey, poi, checkin, checkout, nights, live_mode, notice,
+      cityKey, poi, checkin, checkout, nights, live_mode, notice, asOf,
     });
   }
 
@@ -352,6 +353,10 @@
       ? ` · ${ctx.checkin} → ${ctx.checkout} (${ctx.nights} night${ctx.nights === 1 ? "" : "s"})`
       : "";
 
+    const asOfText = ctx.live_mode && ctx.asOf
+      ? ` · Prices as of ${formatAsOf(ctx.asOf)}`
+      : "";
+
     const badge = ctx.live_mode
       ? `<span class="live-badge live-on">● Live prices</span>`
       : `<span class="live-badge live-off">Sample prices</span>`;
@@ -359,7 +364,7 @@
     let html = `
       <div class="results-head">
         <h2>Top 5 hotels in ${escapeHtml(city.name)} ${badge}</h2>
-        <span class="sub">Ranked by: ${escapeHtml(criteriaText)}${dateText}</span>
+        <span class="sub">Ranked by: ${escapeHtml(criteriaText)}${dateText}${asOfText}</span>
       </div>`;
 
     if (!ctx.live_mode && ctx.notice) {
@@ -386,6 +391,15 @@
       const fromPrice = offers[0].perNight; // cheapest reservation outcome
 
       const offerRows = offers.map((o, idx) => {
+        // Compare-only rows (no live price returned for this provider).
+        if (o.perNight == null) {
+          return `
+        <li class="offer offer-compare">
+          <span class="offer-provider">${escapeHtml(o.provider)}</span>
+          <span class="offer-price offer-check">Check price</span>
+          <a class="offer-link is-ghost" href="${o.url}" target="_blank" rel="noopener noreferrer">Compare →</a>
+        </li>`;
+        }
         const total = ctx.nights ? o.perNight * ctx.nights : null;
         return `
         <li class="offer${idx === 0 ? " is-best" : ""}">
@@ -457,6 +471,14 @@
     if (!checkin || !checkout) return 0;
     const d = (new Date(checkout) - new Date(checkin)) / 86400000;
     return d > 0 ? Math.round(d) : 0;
+  }
+
+  function formatAsOf(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "just now";
+    return d.toLocaleString([], {
+      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    });
   }
 
   function escapeHtml(str) {
