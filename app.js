@@ -936,9 +936,20 @@
     return a ? `${a.code} (${a.city})` : code;
   }
 
-  /* A booking link that opens a flight search for this exact route, date and
-   * cabin on Google Flights, where the ticket can be purchased. */
-  function bookingUrl(f) {
+  /* Is this a Star Alliance search? Those bookings are handled on United's site
+   * (United is a Star Alliance member and can ticket Star Alliance itineraries). */
+  function isStarAllianceSearch(sel) {
+    return sel.airmode === "alliance" && sel.alliance === "Star Alliance";
+  }
+
+  /* A booking link for this exact route, date and cabin. Star Alliance searches
+   * (and any United flight) open on united.com; everything else on Google Flights. */
+  function bookingUrl(f, sel) {
+    if (isStarAllianceSearch(sel) || f.airline.code === "UA") {
+      const sc = f.cabin === "Business" ? "4" : "7"; // United cabin codes (economy/business)
+      return `https://www.united.com/en/us/fsr/choose-flights?f=${encodeURIComponent(f.origin)}` +
+             `&t=${encodeURIComponent(f.destination)}&d=${f.date}&tt=1&sc=${sc}&px=1&taxng=1&idx=1`;
+    }
     const q = `Flights from ${f.origin} to ${f.destination} on ${f.date} ${f.cabin} class ${f.airline.name}`;
     return "https://www.google.com/travel/flights?q=" + encodeURIComponent(q);
   }
@@ -977,6 +988,10 @@
         <span class="sub">Sorted by price · these reflect your selections above</span>
       </div>`;
 
+    if (isStarAllianceSearch(sel)) {
+      html += `<div class="notice notice-info">✦ Star Alliance selected — bookings open on <b>united.com</b> (United Airlines), which can ticket Star Alliance itineraries.</div>`;
+    }
+
     flights.forEach((f) => {
       const arrMin = f.depMinutes + f.durationMin;
       const plusDays = Math.floor(arrMin / 1440);
@@ -986,7 +1001,8 @@
       tags.push(`<span class="tag">📅 ${escapeHtml(f.date)}</span>`);
       f.luggage.forEach((l) => tags.push(`<span class="tag">${LUGGAGE_LABEL[l]}</span>`));
 
-      const book = bookingUrl(f);
+      const book = bookingUrl(f, sel);
+      const bookLabel = (isStarAllianceSearch(sel) || f.airline.code === "UA") ? "Book on United →" : "Book →";
       html += `
         <article class="flight-result">
           <div class="airline-badge" title="${escapeHtml(f.airline.name)}">
@@ -1007,7 +1023,7 @@
             <div class="per">cash</div>
             <div class="award">or <b>${f.award.fullMiles.toLocaleString()}</b> miles</div>
             <div class="award">or <b>${f.award.partialMiles.toLocaleString()}</b> mi + $${f.award.copay.toLocaleString()}</div>
-            <a class="book-btn" href="${book}" target="_blank" rel="noopener noreferrer">Book →</a>
+            <a class="book-btn" href="${book}" target="_blank" rel="noopener noreferrer">${bookLabel}</a>
           </div>
         </article>`;
     });

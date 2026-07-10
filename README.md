@@ -129,10 +129,12 @@ options (airline honours the alliance/specific choice, departure honours the
 chosen hour, dates fall inside the range, and price reflects class + luggage),
 sorted by price. Each option shows the **airline name and logo**, two
 award-redemption alternatives to the cash fare (a **full miles** price and a
-**miles + money** partial-redemption price), and a **Book** link that opens a
-Google Flights search for that exact route, date, cabin and airline so the
-ticket can be purchased. (Airline logos load from a logo CDN on the live app and
-fall back to the airline code offline.)
+**miles + money** partial-redemption price), and a **Book** link so the ticket can be purchased. For most searches the Book link
+opens a Google Flights search for that exact route, date, cabin and airline.
+**When the search is by Star Alliance**, bookings instead open on **united.com**
+(United Airlines, a Star Alliance member that can ticket Star Alliance
+itineraries) and the button reads "Book on United". (Airline logos load from a
+logo CDN on the live app and fall back to the airline code offline.)
 
 > These flight options are generated to represent your selections. To wire in
 > live flight prices, connect the SerpApi **Google Flights** engine on the
