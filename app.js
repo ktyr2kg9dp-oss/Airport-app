@@ -232,30 +232,40 @@
   });
 
   async function runHotelSearch() {
-    const cityKey = getCityKey(cityInput.value);
+    // The city may be one of the bundled cities OR any free-typed city (live
+    // prices work for anywhere Google Hotels covers).
+    const cityRaw = cityInput.value.trim();
+    const cityKey = getCityKey(cityRaw);            // bundled match, or null
+    const city = cityKey || cityRaw;                // what we actually search
     const checkin = document.getElementById("hotel-checkin").value;
     const checkout = document.getElementById("hotel-checkout").value;
 
-    if (!cityKey) {
-      return showEmpty("Please choose a city from the list to search hotels.");
+    if (!city) {
+      return showEmpty("Please enter a city to search hotels.");
     }
     if (!criteriaOrder.length) {
       return showEmpty("Select at least one ranking criterion (up to 3) to sort your results.");
     }
 
-    // Resolve the selected point of interest (needed for distance criterion).
-    const poi = (POIS[cityKey] || []).find(
-      (p) => p.name.toLowerCase() === poiInput.value.trim().toLowerCase()
-    );
-
     // Optional max-distance filter (0–99 km from the point of interest).
     const maxDistance = parseMaxDistance(document.getElementById("hotel-maxdist").value);
+    const poiText = poiInput.value.trim();
 
-    if (criteriaOrder.includes("distance") && !poi) {
-      return showEmpty("Choose a point of interest to rank hotels by distance, or remove that criterion.");
+    if ((criteriaOrder.includes("distance") || maxDistance != null) && !poiText) {
+      return showEmpty("Enter a point of interest to use distance ranking or a maximum distance.");
     }
-    if (maxDistance != null && !poi) {
-      return showEmpty("Choose a point of interest to filter by maximum distance, or clear the max distance field.");
+
+    // Resolve the point of interest to coordinates: bundled first, otherwise
+    // geocode it live so distance works for any city / any landmark.
+    let poi = (POIS[cityKey] || []).find(
+      (p) => p.name.toLowerCase() === poiText.toLowerCase()
+    );
+    if (!poi && poiText) {
+      showEmpty("Locating your point of interest…");
+      poi = await geocodePlace(poiText, city);
+      if (!poi && (criteriaOrder.includes("distance") || maxDistance != null)) {
+        return showEmpty(`Couldn't locate "${poiText}" in ${city}. Check the spelling, or remove the distance options.`);
+      }
     }
 
     const nights = nightsBetween(checkin, checkout);
@@ -264,7 +274,7 @@
     //    rates via Google Hotels). 2) Fall back to bundled sample data if the
     //    server or API key isn't available.
     showEmpty("Searching live prices…");
-    const live = await fetchLiveHotels(cityKey, checkin, checkout);
+    const live = await fetchLiveHotels(city, checkin, checkout);
 
     let hotels, live_mode, notice, asOf;
     if (live && live.hotels.length) {
@@ -280,6 +290,9 @@
         distance: poi ? distanceKm(h, poi) : null,
       }));
       live_mode = false;
+      if (!hotels.length) {
+        return showEmpty(`Live prices aren't available right now, and "${city}" isn't one of the built-in sample cities. Start the app with the live server (and your SerpApi key) to search any city.`);
+      }
       notice = (live && live.reason) ||
         "Showing sample prices. Run the app with the backend server and a SerpApi key for live prices.";
     }
@@ -308,16 +321,31 @@
     let deepNote;
     if (deep && live_mode) {
       showEmpty("🔬 Analyzing real reviews for the top hotels… this can take several seconds.");
-      top = await deepAnalyze(top, cityKey);
+      top = await deepAnalyze(top, city);
       top = rankHotels(top, criteriaOrder);
     } else if (deep && !live_mode) {
       deepNote = "Deep review analysis needs the live server (with your API key). Showing summary scores instead.";
     }
 
     renderHotelResults(top, {
-      cityKey, poi, checkin, checkout, nights, live_mode, notice, asOf, maxDistance,
+      cityName: city, poi, checkin, checkout, nights, live_mode, notice, asOf, maxDistance,
       deep: deep && live_mode, deepNote,
     });
+  }
+
+  /* Geocode a free-typed place to { name, lat, lng } via the backend, so
+   * distances work for any city / landmark. Returns null if unavailable. */
+  async function geocodePlace(query, city) {
+    try {
+      const params = new URLSearchParams({ q: query, city });
+      const res = await fetch(`/api/place?${params.toString()}`, { headers: { Accept: "application/json" } });
+      if (!res.ok) return null;
+      const d = await res.json();
+      if (!d.ok) return null;
+      return { name: d.name || query, lat: d.lat, lng: d.lng };
+    } catch (_) {
+      return null;
+    }
   }
 
   /* For each shortlisted hotel, ask the backend to analyse its real reviews and
@@ -407,7 +435,7 @@
   function renderHotelResults(hotels, ctx) {
     if (!hotels.length) return showEmpty("No hotels found for this search.");
 
-    const city = CITIES.find((c) => c.name === ctx.cityKey);
+    const cityName = ctx.cityName;
     const criteriaText = criteriaOrder.map((v) => CRITERIA_LABELS[v]).join(", ");
     const dateText = ctx.checkin && ctx.checkout
       ? ` · ${ctx.checkin} → ${ctx.checkout} (${ctx.nights} night${ctx.nights === 1 ? "" : "s"})`
@@ -427,7 +455,7 @@
 
     let html = `
       <div class="results-head">
-        <h2>Top 5 hotels in ${escapeHtml(city.name)} ${badge}</h2>
+        <h2>Top 5 hotels in ${escapeHtml(cityName)} ${badge}</h2>
         <span class="sub">Ranked by: ${escapeHtml(criteriaText)}${distText}${dateText}${asOfText}</span>
       </div>`;
 
@@ -474,7 +502,7 @@
       // Live results carry real per-provider offers; sample results synthesise them.
       const offers = (h.offers && h.offers.length)
         ? h.offers
-        : buildOffers(h, city.name, ctx.checkin, ctx.checkout);
+        : buildOffers(h, cityName, ctx.checkin, ctx.checkout);
       const fromPrice = offers[0].perNight; // cheapest reservation outcome
 
       const offerRows = offers.map((o, idx) => {

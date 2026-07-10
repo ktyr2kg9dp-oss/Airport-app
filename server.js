@@ -40,6 +40,9 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/reviews") {
     return handleReviews(url, res);
   }
+  if (url.pathname === "/api/place") {
+    return handlePlace(url, res);
+  }
   return serveStatic(url, res);
 });
 
@@ -104,6 +107,44 @@ async function handleSearch(url, res) {
     });
   } catch (err) {
     return json(res, 200, { live: false, reason: `Lookup failed: ${err.message}`, hotels: [] });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Geocoding (points of interest, any city)                           */
+/* ------------------------------------------------------------------ */
+
+const placeCache = new Map();
+const PLACE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/* Resolve a free-typed place ("Eiffel Tower", "British Museum", …) to
+ * coordinates via Google Maps, so distance works for any city / landmark. */
+async function handlePlace(url, res) {
+  const q = url.searchParams.get("q") || "";
+  const city = url.searchParams.get("city") || "";
+  if (!SERPAPI_KEY) return json(res, 200, { ok: false, reason: "no-key" });
+  if (!q) return json(res, 400, { ok: false, reason: "missing query" });
+
+  const cacheKey = `${q}|${city}`.toLowerCase();
+  const hit = placeCache.get(cacheKey);
+  if (hit && hit.expires > Date.now()) return json(res, 200, hit.value);
+
+  try {
+    const m = await (await fetch(serpUrl({
+      engine: "google_maps", q: city ? `${q}, ${city}` : q, type: "search", hl: "en",
+    }))).json();
+    const pr = m.place_results;
+    const lr = Array.isArray(m.local_results) ? m.local_results[0] : null;
+    const g = (pr && pr.gps_coordinates) || (lr && lr.gps_coordinates);
+    const name = (pr && pr.title) || (lr && lr.title) || q;
+    if (!g || g.latitude == null) {
+      return json(res, 200, { ok: false, reason: "not-found" });
+    }
+    const value = { ok: true, name, lat: g.latitude, lng: g.longitude };
+    placeCache.set(cacheKey, { value, expires: Date.now() + PLACE_TTL_MS });
+    return json(res, 200, value);
+  } catch (err) {
+    return json(res, 200, { ok: false, reason: err.message });
   }
 }
 

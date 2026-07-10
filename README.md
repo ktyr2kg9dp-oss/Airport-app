@@ -45,8 +45,8 @@ When **Hotel** is selected the following inputs are active:
 
 | Button / field       | What it does |
 |----------------------|--------------|
-| **City**             | Type a city; an autocomplete lists matching cities (bundled dataset today, all Google cities once the API is connected). |
-| **Point of interest**| Type a landmark, museum, park, geographic sight, etc. Suggestions are scoped to the chosen city. |
+| **City**             | Type **any** city. A built-in list of ~50 major cities offers autocomplete suggestions, but with live prices enabled you can search anywhere Google Hotels covers — just type the name. |
+| **Point of interest**| Type **any** landmark, museum, area, etc. For the built-in cities there are curated suggestions; for anywhere else the place is geocoded live (via Google Maps) so distance still works. |
 | **Check in**         | Date picker for the check-in day. |
 | **Check out**        | Date picker for the check-out day (used to compute nights & total price). |
 

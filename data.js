@@ -25,6 +25,48 @@ const CITIES = [
   { name: "Sydney",       country: "Australia",      lat: -33.8688, lng: 151.2093 },
   { name: "Istanbul",     country: "Turkey",         lat: 41.0082, lng: 28.9784 },
   { name: "San Francisco",country: "United States",  lat: 37.7749, lng: -122.4194 },
+  { name: "Berlin",       country: "Germany",        lat: 52.5200, lng: 13.4050 },
+  { name: "Madrid",       country: "Spain",          lat: 40.4168, lng: -3.7038 },
+  { name: "Lisbon",       country: "Portugal",       lat: 38.7223, lng: -9.1393 },
+  { name: "Vienna",       country: "Austria",        lat: 48.2082, lng: 16.3738 },
+  { name: "Prague",       country: "Czechia",        lat: 50.0755, lng: 14.4378 },
+  { name: "Munich",       country: "Germany",        lat: 48.1351, lng: 11.5820 },
+  { name: "Milan",        country: "Italy",          lat: 45.4642, lng: 9.1900 },
+  { name: "Venice",       country: "Italy",          lat: 45.4408, lng: 12.3155 },
+  { name: "Florence",     country: "Italy",          lat: 43.7696, lng: 11.2558 },
+  { name: "Zurich",       country: "Switzerland",    lat: 47.3769, lng: 8.5417 },
+  { name: "Athens",       country: "Greece",         lat: 37.9838, lng: 23.7275 },
+  { name: "Dublin",       country: "Ireland",        lat: 53.3498, lng: -6.2603 },
+  { name: "Copenhagen",   country: "Denmark",        lat: 55.6761, lng: 12.5683 },
+  { name: "Stockholm",    country: "Sweden",         lat: 59.3293, lng: 18.0686 },
+  { name: "Oslo",         country: "Norway",         lat: 59.9139, lng: 10.7522 },
+  { name: "Helsinki",     country: "Finland",        lat: 60.1699, lng: 24.9384 },
+  { name: "Brussels",     country: "Belgium",        lat: 50.8503, lng: 4.3517 },
+  { name: "Budapest",     country: "Hungary",        lat: 47.4979, lng: 19.0402 },
+  { name: "Warsaw",       country: "Poland",         lat: 52.2297, lng: 21.0122 },
+  { name: "Los Angeles",  country: "United States",  lat: 34.0522, lng: -118.2437 },
+  { name: "Chicago",      country: "United States",  lat: 41.8781, lng: -87.6298 },
+  { name: "Miami",        country: "United States",  lat: 25.7617, lng: -80.1918 },
+  { name: "Las Vegas",    country: "United States",  lat: 36.1699, lng: -115.1398 },
+  { name: "Boston",       country: "United States",  lat: 42.3601, lng: -71.0589 },
+  { name: "Toronto",      country: "Canada",         lat: 43.6532, lng: -79.3832 },
+  { name: "Vancouver",    country: "Canada",         lat: 49.2827, lng: -123.1207 },
+  { name: "Mexico City",  country: "Mexico",         lat: 19.4326, lng: -99.1332 },
+  { name: "Rio de Janeiro",country:"Brazil",         lat: -22.9068, lng: -43.1729 },
+  { name: "Buenos Aires", country: "Argentina",      lat: -34.6037, lng: -58.3816 },
+  { name: "Cairo",        country: "Egypt",          lat: 30.0444, lng: 31.2357 },
+  { name: "Cape Town",    country: "South Africa",   lat: -33.9249, lng: 18.4241 },
+  { name: "Bangkok",      country: "Thailand",       lat: 13.7563, lng: 100.5018 },
+  { name: "Hong Kong",    country: "China",          lat: 22.3193, lng: 114.1694 },
+  { name: "Seoul",        country: "South Korea",    lat: 37.5665, lng: 126.9780 },
+  { name: "Beijing",      country: "China",          lat: 39.9042, lng: 116.4074 },
+  { name: "Shanghai",     country: "China",          lat: 31.2304, lng: 121.4737 },
+  { name: "Mumbai",       country: "India",          lat: 19.0760, lng: 72.8777 },
+  { name: "Delhi",        country: "India",          lat: 28.6139, lng: 77.2090 },
+  { name: "Kuala Lumpur", country: "Malaysia",       lat: 3.1390,  lng: 101.6869 },
+  { name: "Marrakesh",    country: "Morocco",        lat: 31.6295, lng: -7.9811 },
+  { name: "Tel Aviv",     country: "Israel",         lat: 32.0853, lng: 34.7818 },
+  { name: "Jerusalem",    country: "Israel",         lat: 31.7683, lng: 35.2137 },
 ];
 
 /*
@@ -150,6 +192,7 @@ const HOTEL_TYPES = ["Hotel", "Suites", "Inn", "Residence", "Palace", "Lodge"];
  * near the city centre, a nightly price, a review score and a review count.
  */
 function getHotelsForCity(cityName) {
+  if (!cityName) return [];
   const city = CITIES.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
   if (!city) return [];
 
