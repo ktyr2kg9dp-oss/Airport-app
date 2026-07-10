@@ -8,6 +8,8 @@
     price: "Price per night",
     review: "Review score",
     distance: "Distance from point of interest",
+    cleanliness: "Cleanliness reviews",
+    service: "Service reviews",
   };
 
   /*
@@ -324,7 +326,7 @@
    */
   function rankHotels(hotels, order) {
     const ranges = {};
-    ["price", "review", "distance"].forEach((key) => {
+    ["price", "review", "distance", "cleanliness", "service"].forEach((key) => {
       const vals = hotels
         .map((h) => metricValue(h, key))
         .filter((v) => v != null);
@@ -355,6 +357,8 @@
     if (key === "price") return hotel.pricePerNight;
     if (key === "review") return hotel.reviewScore;
     if (key === "distance") return hotel.distance;
+    if (key === "cleanliness") return hotel.cleanliness;
+    if (key === "service") return hotel.service;
     return null;
   }
 
@@ -395,6 +399,14 @@
       html += `<div class="notice notice-info">Prices are indicative — sourced from Google Hotels and updated periodically. Rooms can sell out or change price, so always confirm the price and availability on the booking site before you pay. Each “Reserve” link opens your exact dates.</div>`;
     }
 
+    // Warn if a chosen ranking criterion had no data for any shown hotel.
+    const missing = criteriaOrder.filter((c) =>
+      (c === "cleanliness" || c === "service") && hotels.every((h) => h[c] == null));
+    if (missing.length) {
+      const names = missing.map((c) => CRITERIA_LABELS[c]).join(" and ");
+      html += `<div class="notice">${escapeHtml(names)} weren't reported by Google for these hotels, so they didn't affect the ranking.</div>`;
+    }
+
     hotels.forEach((h, i) => {
       const meta = [];
       if (h.reviewScore != null) {
@@ -403,6 +415,12 @@
       }
       if (h.distance != null) {
         meta.push(`<span>📍 <b>${h.distance.toFixed(1)} km</b> from ${escapeHtml(ctx.poi.name)}</span>`);
+      }
+      if (h.cleanliness != null) {
+        meta.push(`<span>🧼 Cleanliness <b>${h.cleanliness}%</b></span>`);
+      }
+      if (h.service != null) {
+        meta.push(`<span>🛎️ Service <b>${h.service}%</b></span>`);
       }
 
       // Live results carry real per-provider offers; sample results synthesise them.

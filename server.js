@@ -161,9 +161,27 @@ function normalizeProperty(p, i, ctx) {
     lng: gps.longitude != null ? gps.longitude : null,
     reviewScore: p.overall_rating != null ? p.overall_rating : null,
     reviewCount: p.reviews != null ? p.reviews : 0,
+    cleanliness: sentimentPct(p.reviews_breakdown, /clean/i),
+    service: sentimentPct(p.reviews_breakdown, /service/i),
     pricePerNight: offers[0].perNight,
     offers,
   };
+}
+
+/*
+ * Google Hotels returns a per-category review sentiment breakdown
+ * (reviews_breakdown: [{ name, positive, negative, neutral }, …]). Convert the
+ * matching category into a "% of mentions that were positive" score, or null
+ * when that category isn't reported for the hotel.
+ */
+function sentimentPct(breakdown, categoryRe) {
+  if (!Array.isArray(breakdown)) return null;
+  const cat = breakdown.find((b) => categoryRe.test(String(b.name || "")));
+  if (!cat) return null;
+  const pos = cat.positive || 0;
+  const total = pos + (cat.negative || 0) + (cat.neutral || 0);
+  if (!total) return null;
+  return Math.round((pos / total) * 100);
 }
 
 /* ------------------------------------------------------------------ */

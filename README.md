@@ -57,6 +57,13 @@ priority (1st = most important):
 - 💰 **Price per night** (lowest first)
 - ⭐ **Review score** (highest first)
 - 📍 **Distance from point of interest** (nearest first)
+- 🧼 **Cleanliness reviews** (highest first)
+- 🛎️ **Service reviews** (highest first)
+
+Cleanliness and service scores come from Google Hotels' review-sentiment
+breakdown (shown as "% positive"). When Google doesn't report them for a hotel,
+that hotel simply omits those badges. You can also cap results by a **maximum
+distance** from the point of interest (0–99 km, decimals allowed).
 
 The app normalises each metric to a 0–1 score, weights them by priority
 (3 / 2 / 1), and returns the **top 5 hotels**.

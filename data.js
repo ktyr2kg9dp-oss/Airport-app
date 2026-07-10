@@ -172,6 +172,8 @@ function getHotelsForCity(cityName) {
       pricePerNight: Math.round(70 + rng() * 480),        // 70 – 550
       reviewScore: Math.round((6.5 + rng() * 3.4) * 10) / 10, // 6.5 – 9.9
       reviewCount: Math.round(80 + rng() * 4200),
+      cleanliness: Math.round(78 + rng() * 21),           // 78 – 99 % positive
+      service: Math.round(75 + rng() * 24),               // 75 – 99 % positive
     });
   }
   return hotels;
