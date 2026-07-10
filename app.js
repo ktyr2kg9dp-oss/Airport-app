@@ -330,6 +330,7 @@
     renderHotelResults(top, {
       cityName: city, poi, checkin, checkout, nights, live_mode, notice, asOf, maxDistance,
       deep: deep && live_mode, deepNote,
+      showMap: document.getElementById("hotel-map").checked,
     });
   }
 
@@ -481,6 +482,11 @@
       html += `<div class="notice">${escapeHtml(names)} weren't reported by Google for these hotels, so they didn't affect the ranking.</div>`;
     }
 
+    if (ctx.showMap) {
+      html += `<div id="results-map" class="results-map"></div>`;
+    }
+
+    const mapPoints = [];
     hotels.forEach((h, i) => {
       const meta = [];
       if (h.reviewScore != null) {
@@ -504,6 +510,10 @@
         ? h.offers
         : buildOffers(h, cityName, ctx.checkin, ctx.checkout);
       const fromPrice = offers[0].perNight; // cheapest reservation outcome
+
+      if (h.lat != null && h.lng != null) {
+        mapPoints.push({ rank: i + 1, name: h.name, lat: h.lat, lng: h.lng, price: fromPrice, url: offers[0].url });
+      }
 
       const offerRows = offers.map((o, idx) => {
         // Compare-only rows (no live price returned for this provider).
@@ -544,9 +554,70 @@
     });
 
     results.innerHTML = html;
+
+    if (ctx.showMap) initResultsMap(mapPoints, ctx.poi);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Results map (Leaflet + OpenStreetMap, no API key needed)         */
+  /* ---------------------------------------------------------------- */
+  let resultsMap = null;
+
+  function initResultsMap(points, poi) {
+    const el = document.getElementById("results-map");
+    if (!el) return;
+
+    // Leaflet loads from a CDN; if it's blocked (e.g. the offline preview) or
+    // no hotel has coordinates, show a friendly fallback instead of a blank box.
+    if (typeof L === "undefined") {
+      el.classList.add("map-fallback");
+      el.textContent = "The map needs an internet connection to load — it works in the live app.";
+      return;
+    }
+    if (!points.length) {
+      el.classList.add("map-fallback");
+      el.textContent = "No map coordinates were available for these hotels.";
+      return;
+    }
+
+    if (resultsMap) { resultsMap.remove(); resultsMap = null; }
+    const map = L.map(el, { scrollWheelZoom: false });
+    resultsMap = map;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    const bounds = [];
+    points.forEach((p) => {
+      const icon = L.divIcon({
+        className: "map-pin", html: `<span><b>${p.rank}</b></span>`,
+        iconSize: [28, 28], iconAnchor: [14, 26], popupAnchor: [0, -24],
+      });
+      const priceLine = p.price != null ? `<br>from $${Number(p.price).toLocaleString()} / night` : "";
+      const link = p.url ? `<br><a href="${p.url}" target="_blank" rel="noopener noreferrer">Reserve →</a>` : "";
+      L.marker([p.lat, p.lng], { icon })
+        .addTo(map)
+        .bindPopup(`<b>${p.rank}. ${escapeHtml(p.name)}</b>${priceLine}${link}`);
+      bounds.push([p.lat, p.lng]);
+    });
+
+    if (poi && poi.lat != null && poi.lng != null) {
+      const poiIcon = L.divIcon({
+        className: "map-poi", html: "<span>📍</span>",
+        iconSize: [30, 30], iconAnchor: [15, 28], popupAnchor: [0, -24],
+      });
+      L.marker([poi.lat, poi.lng], { icon: poiIcon })
+        .addTo(map)
+        .bindPopup(`<b>${escapeHtml(poi.name)}</b><br>Your point of interest`);
+      bounds.push([poi.lat, poi.lng]);
+    }
+
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
   }
 
   function showEmpty(msg) {
+    if (resultsMap) { resultsMap.remove(); resultsMap = null; }
     results.innerHTML = `<div class="empty">${escapeHtml(msg)}</div>`;
   }
 

@@ -96,6 +96,14 @@ sample prices so you can see how it works.
 > Selecting **Distance from point of interest** requires a point of interest to
 > be chosen; the app will prompt you if it's missing.
 
+### Map view
+Tick **🗺️ Show results on a map** to plot the ranked hotels as numbered pins
+(matching the list) with your point of interest marked, on an interactive map.
+The map uses **Leaflet + OpenStreetMap**, which is free and needs **no API key**.
+It requires an internet connection to load the map tiles; when unavailable
+(e.g. the offline artifact preview) the app shows a short fallback message
+instead of the map.
+
 ### Flight search (companion)
 Flight mode estimates distance, flight time and a price between two cities.
 

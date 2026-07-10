@@ -302,6 +302,51 @@ body {
   border-color: var(--accent);
 }
 
+/* Results map */
+.results-map {
+  height: 340px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  z-index: 0;
+}
+.results-map.map-fallback {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 20px;
+  background: var(--card);
+}
+.leaflet-container { background: #0b0e20; font: inherit; }
+.map-pin span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.map-pin span b { transform: rotate(45deg); }
+.map-poi span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.leaflet-popup-content { margin: 10px 12px; font-size: 13px; line-height: 1.4; }
+.leaflet-popup-content a { color: #1257d6; font-weight: 700; }
+
 .hotel-card {
   display: grid;
   grid-template-columns: 54px 1fr;
