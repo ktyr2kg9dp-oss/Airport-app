@@ -390,6 +390,141 @@ body {
 .hotel-meta .star { color: var(--warn); }
 .hotel-meta b { color: var(--text); }
 
+/* Photos button */
+.hotel-photos { margin-top: 10px; }
+.photos-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.photos-btn:hover { border-color: var(--accent); background: rgba(79, 140, 255, 0.12); }
+.photos-btn img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 999px;
+  display: block;
+}
+.photos-btn .cam { font-size: 15px; }
+
+/* Photo gallery lightbox */
+.gallery[hidden] { display: none; }
+.gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.gallery-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 6, 16, 0.82);
+  backdrop-filter: blur(3px);
+}
+.gallery-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(960px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+.gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gallery-title { font-weight: 700; font-size: 16px; }
+.gallery-close {
+  border: 0;
+  background: var(--bg-2);
+  color: var(--text);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  flex: none;
+}
+.gallery-close:hover { background: var(--card-2); }
+.gallery-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: #0b0e20;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 200px;
+}
+.gallery-main {
+  max-width: 100%;
+  max-height: 62vh;
+  object-fit: contain;
+  display: block;
+}
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gallery-nav:hover { background: rgba(0, 0, 0, 0.8); }
+.gallery-nav.prev { left: 10px; }
+.gallery-nav.next { right: 10px; }
+.gallery-counter {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.gallery-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.gallery-thumbs img {
+  width: 74px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0.6;
+  border: 2px solid transparent;
+  flex: none;
+}
+.gallery-thumbs img.is-active { opacity: 1; border-color: var(--accent); }
+
 /* Reservation outcomes */
 .offers {
   list-style: none;

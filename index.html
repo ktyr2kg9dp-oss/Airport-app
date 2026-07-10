@@ -131,6 +131,24 @@
     <p>Oflights demo · City &amp; point-of-interest data is loaded from a bundled dataset. See <code>README.md</code> to connect the live Google Places API.</p>
   </footer>
 
+  <!-- Photo gallery lightbox -->
+  <div id="gallery" class="gallery" hidden>
+    <div class="gallery-backdrop" data-close></div>
+    <div class="gallery-dialog" role="dialog" aria-modal="true" aria-label="Hotel photos">
+      <div class="gallery-head">
+        <span class="gallery-title"></span>
+        <button type="button" class="gallery-close" data-close aria-label="Close photos">✕</button>
+      </div>
+      <div class="gallery-stage">
+        <button type="button" class="gallery-nav prev" data-prev aria-label="Previous photo">‹</button>
+        <img class="gallery-main" alt="Hotel photo" />
+        <button type="button" class="gallery-nav next" data-next aria-label="Next photo">›</button>
+        <span class="gallery-counter"></span>
+      </div>
+      <div class="gallery-thumbs"></div>
+    </div>
+  </div>
+
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>

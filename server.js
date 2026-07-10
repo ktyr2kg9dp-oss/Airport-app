@@ -299,6 +299,11 @@ function normalizeProperty(p, i, ctx) {
     reviewCount: p.reviews != null ? p.reviews : 0,
     cleanliness: sentimentPct(p.reviews_breakdown, /clean/i),
     service: sentimentPct(p.reviews_breakdown, /service/i),
+    images: Array.isArray(p.images)
+      ? p.images.slice(0, 12)
+          .map((im) => ({ t: im.thumbnail || im.original_image, o: im.original_image || im.thumbnail }))
+          .filter((x) => x.o)
+      : [],
     pricePerNight: offers[0].perNight,
     offers,
   };

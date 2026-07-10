@@ -487,7 +487,9 @@
     }
 
     const mapPoints = [];
+    currentGalleries = [];
     hotels.forEach((h, i) => {
+      currentGalleries[i] = { name: h.name, images: h.images || [] };
       const meta = [];
       if (h.reviewScore != null) {
         const reviews = h.reviewCount ? ` <span>(${h.reviewCount.toLocaleString()} reviews)</span>` : "";
@@ -546,6 +548,13 @@
               <div class="hotel-from"><span>from</span> <b>$${fromPrice.toLocaleString()}</b><small>/night</small></div>
             </div>
             <div class="hotel-meta">${meta.join("")}</div>
+            ${h.images && h.images.length ? `
+            <div class="hotel-photos">
+              <button type="button" class="photos-btn" data-g="${i}">
+                <img src="${escapeHtml(h.images[0].t)}" alt="" onerror="this.remove()" />
+                <span class="cam">📷</span> ${h.images.length} photo${h.images.length === 1 ? "" : "s"}
+              </button>
+            </div>` : ""}
             <ul class="offers" aria-label="Reservation options for ${escapeHtml(h.name)}">
               ${offerRows}
             </ul>
@@ -557,6 +566,71 @@
 
     if (ctx.showMap) initResultsMap(mapPoints, ctx.poi);
   }
+
+  /* ---------------------------------------------------------------- */
+  /* Photo gallery lightbox                                           */
+  /* ---------------------------------------------------------------- */
+  let currentGalleries = [];
+  const gallery = document.getElementById("gallery");
+  const gMain = gallery.querySelector(".gallery-main");
+  const gThumbs = gallery.querySelector(".gallery-thumbs");
+  const gCounter = gallery.querySelector(".gallery-counter");
+  const gTitle = gallery.querySelector(".gallery-title");
+  let gImages = [], gIndex = 0;
+
+  function openGallery(images, title, start) {
+    gImages = images || [];
+    gIndex = start || 0;
+    gTitle.textContent = title || "Hotel photos";
+    if (!gImages.length) return;
+    renderGallery();
+    gallery.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+  function closeGallery() {
+    gallery.hidden = true;
+    gImages = [];
+    gMain.removeAttribute("src");
+    document.body.style.overflow = "";
+  }
+  function stepGallery(delta) {
+    if (!gImages.length) return;
+    gIndex = (gIndex + delta + gImages.length) % gImages.length;
+    renderGallery();
+  }
+  function renderGallery() {
+    const im = gImages[gIndex];
+    gMain.src = im.o;
+    gCounter.textContent = `${gIndex + 1} / ${gImages.length}`;
+    gThumbs.innerHTML = "";
+    gImages.forEach((x, i) => {
+      const t = document.createElement("img");
+      t.src = x.t;
+      t.alt = "";
+      if (i === gIndex) t.className = "is-active";
+      t.addEventListener("click", () => { gIndex = i; renderGallery(); });
+      gThumbs.appendChild(t);
+    });
+  }
+
+  gallery.addEventListener("click", (e) => {
+    if (e.target.hasAttribute("data-close")) closeGallery();
+    else if (e.target.hasAttribute("data-prev")) stepGallery(-1);
+    else if (e.target.hasAttribute("data-next")) stepGallery(1);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (gallery.hidden) return;
+    if (e.key === "Escape") closeGallery();
+    else if (e.key === "ArrowLeft") stepGallery(-1);
+    else if (e.key === "ArrowRight") stepGallery(1);
+  });
+  // Open a hotel's gallery when its photos button is clicked (event delegation).
+  results.addEventListener("click", (e) => {
+    const btn = e.target.closest(".photos-btn");
+    if (!btn) return;
+    const g = currentGalleries[Number(btn.dataset.g)];
+    if (g && g.images.length) openGallery(g.images, g.name, 0);
+  });
 
   /* ---------------------------------------------------------------- */
   /* Results map (Leaflet + OpenStreetMap, no API key needed)         */

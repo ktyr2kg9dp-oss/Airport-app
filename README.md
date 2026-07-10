@@ -96,6 +96,13 @@ sample prices so you can see how it works.
 > Selecting **Distance from point of interest** requires a point of interest to
 > be chosen; the app will prompt you if it's missing.
 
+### Hotel photos
+Each result with photos shows a **📷 N photos** button. Click it to open a
+lightbox gallery of the hotel's images (exterior, rooms, surroundings, etc.)
+with thumbnails, next/previous navigation, and keyboard controls (←/→, Esc).
+Photos come from Google Hotels, so they appear with live prices; sample results
+have no photos.
+
 ### Map view
 Tick **🗺️ Show results on a map** to plot the ranked hotels as numbered pins
 (matching the list) with your point of interest marked, on an interactive map.
