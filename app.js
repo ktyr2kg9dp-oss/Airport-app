@@ -199,8 +199,8 @@
 
   function getRadiusKm() {
     const n = Number(radiusInput.value);
-    if (!isFinite(n) || n <= 0) return 2;
-    return Math.min(7, Math.max(0.2, n));
+    if (!isFinite(n) || n <= 0) return 5;
+    return Math.min(50, Math.max(1, n));
   }
 
   /* Snap a minutes value to the 30-minute seating grid. */
@@ -300,6 +300,7 @@
       const meta = [];
       meta.push(`<span class="star">⭐ <b>${r.rating.toFixed(1)}</b> <span>(${r.reviewCount.toLocaleString()})</span></span>`);
       meta.push(`<span>${"$".repeat(r.priceLevel)}</span>`);
+      if (r.area) meta.push(`<span>📌 ${escapeHtml(r.area)}</span>`);
       meta.push(`<span>📍 <b>${r.distance.toFixed(1)} km</b> away</span>`);
 
       // Availability block: exact = one line; range = chips of free seatings.
@@ -325,7 +326,7 @@
           <div class="rest-main">
             <div class="rest-top">
               <h3>${escapeHtml(r.name)} <span class="cuisine">${escapeHtml(r.cuisine)}</span></h3>
-              <a class="reserve-link" href="${reserveUrl(r, ctx.party, ctx.dateStr, first.min)}" target="_blank" rel="noopener noreferrer">Reserve →</a>
+              <a class="reserve-link" href="${reserveUrl(r, ctx.party, ctx.dateStr, first.min)}" target="_blank" rel="noopener noreferrer">${r.ontopo ? "Book on Ontopo" : "Reserve"} →</a>
             </div>
             <div class="rest-meta">${meta.join("")}</div>
             ${availability}
@@ -337,11 +338,18 @@
     initResultsMap(mapPoints, ctx);
   }
 
-  /* Deep-link to OpenTable pre-filled with the restaurant, party and time. */
+  /* Deep-link to the reservation provider, pre-filled with the restaurant,
+   * party size, date and time. Israeli restaurants book on Ontopo; elsewhere we
+   * fall back to OpenTable. */
   function reserveUrl(rest, party, dateStr, slotMin) {
+    const time = minToTime(slotMin);
+    if (rest.ontopo) {
+      const params = new URLSearchParams({ q: rest.name, size: String(party), date: dateStr, time });
+      return `https://ontopo.com/en/il?${params.toString()}`;
+    }
     const params = new URLSearchParams({
       covers: String(party),
-      dateTime: `${dateStr}T${minToTime(slotMin)}`,
+      dateTime: `${dateStr}T${time}`,
       term: rest.name,
     });
     return `https://www.opentable.com/s?${params.toString()}`;

@@ -1,10 +1,11 @@
-# Otable 🍽️
+# O·Dine — Restaurant Seats 🍽️
 
 Find every restaurant **in a given area** that has an **available table** for
-your **party size** at your **dinner time** — either an exact time or a range.
+your **party size** at your **dinner time** — either an exact time or a range —
+and book it on **[Ontopo](https://ontopo.com/en/il)**.
 
 Pick a **city** or drop a **point on the map**, say **how many people** and
-**when** you want to eat, and Otable lists the restaurants with a free table
+**when** you want to eat, and O·Dine lists the restaurants with a free table
 that seats your whole party, with the exact seatings that are open.
 
 No build step, no API keys. Open `index.html` for a quick look, or run the
@@ -14,18 +15,29 @@ included server.
 
 1. **Where** — type any city (autocomplete) **or click anywhere on the map** to
    search around that exact spot. Drag the pin to fine-tune, and set the
-   **search area** radius (0.2–7 km).
+   **search area** radius (**1–50 km**).
 2. **Who** — enter the **number of diners**. Only restaurants with a table that
    seats the whole party are shown (a party of 3 is offered a 4-top, etc.).
 3. **When** — pick a **date**, then either an **exact dinner time** or a **time
-   range** (from → to). For a range, Otable lists every 30-minute seating that's
-   free within it.
+   range** (from → to). For a range, O·Dine lists every 30-minute seating that's
+   free within it. The window runs late (17:00–23:30) to match Israeli dining.
 
-The results list shows each matching restaurant with its cuisine, rating, price
-level and distance, the free seating time(s), and a **Reserve** link that opens
-[OpenTable](https://www.opentable.com/) pre-filled with the restaurant, party
-size, date and time. A map plots the matches as numbered pins around your search
-area.
+Each result shows the restaurant's cuisine, rating, price level, area and
+distance, the free seating time(s), and a **Book on Ontopo** link pre-filled
+with the restaurant, party size, date and time. A map plots the matches as
+numbered pins around your search area.
+
+## Restaurants & data
+
+- **Israel** — O·Dine serves a **curated list of real restaurants** that take
+  reservations on Ontopo (Taizu, Machneyuda, Uri Buri, Port Said, George & John,
+  and more across Tel Aviv, Jaffa, Jerusalem, Haifa, Akko and Caesarea), with
+  their real names, cuisines and locations. **Reserve links go to Ontopo.**
+- **Elsewhere** — for areas we don't curate yet, O·Dine falls back to a
+  deterministic synthetic catalogue so the app still demonstrates end-to-end.
+
+Table availability is **simulated** for the demo (see below). To wire up **live**
+availability from Ontopo, see "Connecting a live reservations API".
 
 ## Running it
 
@@ -46,47 +58,41 @@ open index.html           # macOS (xdg-open on Linux / double-click on Windows)
 ```
 index.html   # markup: area (city + map), party size, date, time mode, results
 styles.css   # styling / responsive layout
-data.js      # bundled cities + restaurant generator + table-availability engine
+logo.jpg     # O·Dine — Restaurant Seats logo (shown in the header)
+data.js      # cities + real Israeli restaurants + table-availability engine
 app.js       # UI logic: autocomplete, map picker, availability search, rendering
 server.js    # tiny static file server
 ```
 
 ## How availability is modelled
 
-Each restaurant is generated deterministically for its area (so results are
-stable between reloads) with:
-
-- a **table mix** by size (2-, 4-, 6-, 8-, and occasionally 10-/12-seat tables),
-- **opening hours** for dinner service, and
-- a **cuisine, rating, review count and price level**.
-
-For a requested date/time and party size, the engine finds the **smallest table
-that fits the party** and checks whether one is **free** at that seating.
-Occupancy is derived deterministically from the restaurant, date and time and
-**peaks around 20:00**, so prime-time tables are harder to get — just like real
-life.
+Each restaurant has a **table mix** by size (2-, 4-, 6-, 8-, and occasionally
+10-/12-seat tables) and **dinner opening hours**. For a requested date/time and
+party size, the engine finds the **smallest table that fits the party** and
+checks whether one is **free** at that seating. Occupancy is derived
+deterministically from the restaurant, date and time and **peaks around 20:00**,
+so prime-time tables are harder to get — just like real life. Results are stable
+between reloads for the same area/date.
 
 ## Connecting a live reservations API
 
-To use real restaurants and live availability instead of the bundled data,
-replace the two functions the app depends on in `data.js`:
+To use **live Ontopo availability** instead of the simulated engine, replace the
+two functions the app depends on in `data.js`:
 
-- **`getRestaurants(center, seedKey, radiusKm)`** → a nearby-search for
-  restaurants (e.g. Google Places Nearby Search with `type=restaurant`), reading
-  each place's `name`, `geometry.location`, `rating`, `price_level`, etc.
-- **`seatingAt(restaurant, dateStr, slotMin, party)`** → a call to a reservation
-  provider's availability API (e.g. OpenTable/Resy partner APIs) for the given
-  restaurant, date, time and party size.
+- **`getRestaurants(center, seedKey, radiusKm)`** → an Ontopo area/discovery
+  search for restaurants near the point, reading each place's name, location,
+  cuisine, rating and price level.
+- **`seatingAt(restaurant, dateStr, slotMin, party)`** → an Ontopo availability
+  lookup for the given restaurant, date, time and party size.
 
 Keep the returned object shapes (`{ name, lat, lng, cuisine, rating,
-priceLevel, distance }` and `{ seats, freeCount }`) and the rest of the app
-works unchanged. Route any keyed API calls through `server.js` so your key never
-reaches the browser.
+priceLevel, area, distance, ontopo }` and `{ seats, freeCount }`) and the rest
+of the app works unchanged. Route any keyed API calls through `server.js` so
+your key never reaches the browser.
 
 ## Bundled cities
 
-Paris · London · New York · Tokyo · Rome · Barcelona · Amsterdam · Dubai ·
-Singapore · Sydney · Istanbul · San Francisco · and ~40 more. Restaurants are
-generated around whichever city or map point you choose. Extend the `CITIES`
-list in `data.js` to add more named cities (the map picker already works
-anywhere on Earth).
+Tel Aviv · Jaffa · Jerusalem · Haifa · Akko · Caesarea · Herzliya · Netanya ·
+and ~45 more world cities. Restaurants are generated (or, in Israel, curated)
+around whichever city or map point you choose. Extend the `CITIES` list — and,
+for Israel, the `ISRAEL_RAW` list — in `data.js` to add more.
