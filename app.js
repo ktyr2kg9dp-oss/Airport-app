@@ -247,14 +247,15 @@
     else link.hidden = true;
   }
 
-  /* Fetch up to 2 product thumbnails for a card. Silently no-ops when the
-   * server has no image key (the "📷 Photos" link still works). */
+  /* Show a picture if one is available, otherwise leave the "📷 Photos" link.
+   * Fetches up to 2 product thumbnails; on success the fallback link is
+   * hidden so each card shows a picture OR a link, never both. */
   async function loadPhotos(container, query) {
     if (!container || !query) return;
     try {
       const r = await fetch(`/api/images?q=${encodeURIComponent(query)}`);
       const d = await r.json();
-      if (!d.ok || !d.images || !d.images.length) return;
+      if (!d.ok || !d.images || !d.images.length) return; // keep the link
       d.images.slice(0, 2).forEach((im) => {
         const a = el("a", "thumb");
         a.href = im.link || im.thumb; a.target = "_blank"; a.rel = "noopener";
@@ -263,6 +264,10 @@
         a.appendChild(img);
         container.appendChild(a);
       });
+      // A picture is showing — drop the redundant "Photos" link.
+      const card = container.closest(".card");
+      const link = card && card.querySelector(".photo-link");
+      if (link) link.remove();
     } catch (e) { /* leave the Photos link as the fallback */ }
   }
 
