@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oflights &middot; Find Flights &amp; Hotels</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">O</span>
+      <span class="brand-name">Oflights</span>
+    </div>
+    <p class="tagline">Locate flights &amp; hotels anywhere in the world</p>
+  </header>
+
+  <main class="container">
+    <!-- Primary selector: Flight or Hotel -->
+    <section class="mode-switch" aria-label="Search type">
+      <button type="button" class="mode-btn is-active" data-mode="hotel" aria-pressed="true">
+        <span class="mode-ico">🏨</span> Hotel
+      </button>
+      <button type="button" class="mode-btn" data-mode="flight" aria-pressed="false">
+        <span class="mode-ico">✈️</span> Flight
+      </button>
+    </section>
+
+    <!-- ================= HOTEL SEARCH ================= -->
+    <form id="hotel-form" class="search-card" autocomplete="off">
+      <div class="field-row">
+        <!-- City -->
+        <div class="field autocomplete" data-field="city">
+          <label for="hotel-city">City</label>
+          <input type="text" id="hotel-city" placeholder="e.g. Paris" aria-autocomplete="list" aria-expanded="false" />
+          <ul class="suggestions" role="listbox" hidden></ul>
+        </div>
+
+        <!-- Point of interest -->
+        <div class="field autocomplete" data-field="poi">
+          <label for="hotel-poi">Point of interest</label>
+          <input type="text" id="hotel-poi" placeholder="e.g. Eiffel Tower, museums…" aria-autocomplete="list" aria-expanded="false" />
+          <ul class="suggestions" role="listbox" hidden></ul>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <!-- Check in -->
+        <div class="field">
+          <label for="hotel-checkin">Check in</label>
+          <input type="date" id="hotel-checkin" />
+        </div>
+        <!-- Check out -->
+        <div class="field">
+          <label for="hotel-checkout">Check out</label>
+          <input type="date" id="hotel-checkout" />
+        </div>
+      </div>
+
+      <!-- Ranking criteria -->
+      <fieldset class="criteria">
+        <legend>Rank results by your top&nbsp;3 criteria <span class="hint">(pick up to 3 in priority order)</span></legend>
+        <div class="criteria-options">
+          <label class="chip"><input type="checkbox" name="criteria" value="price" /> <span>💰 Price per night (lowest first)</span></label>
+          <label class="chip"><input type="checkbox" name="criteria" value="review" /> <span>⭐ Review score (highest first)</span></label>
+          <label class="chip"><input type="checkbox" name="criteria" value="distance" /> <span>📍 Distance from point of interest (nearest first)</span></label>
+        </div>
+        <p class="criteria-order" aria-live="polite"></p>
+      </fieldset>
+
+      <button type="submit" class="search-btn">Search hotels</button>
+    </form>
+
+    <!-- ================= FLIGHT SEARCH ================= -->
+    <form id="flight-form" class="search-card" autocomplete="off" hidden>
+      <div class="field-row">
+        <div class="field autocomplete" data-field="from">
+          <label for="flight-from">From (city)</label>
+          <input type="text" id="flight-from" placeholder="e.g. New York" aria-autocomplete="list" aria-expanded="false" />
+          <ul class="suggestions" role="listbox" hidden></ul>
+        </div>
+        <div class="field autocomplete" data-field="to">
+          <label for="flight-to">To (city)</label>
+          <input type="text" id="flight-to" placeholder="e.g. London" aria-autocomplete="list" aria-expanded="false" />
+          <ul class="suggestions" role="listbox" hidden></ul>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="flight-depart">Depart</label>
+          <input type="date" id="flight-depart" />
+        </div>
+        <div class="field">
+          <label for="flight-return">Return</label>
+          <input type="date" id="flight-return" />
+        </div>
+      </div>
+      <button type="submit" class="search-btn">Search flights</button>
+    </form>
+
+    <!-- ================= RESULTS ================= -->
+    <section id="results" class="results" aria-live="polite"></section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Oflights demo · City &amp; point-of-interest data is loaded from a bundled dataset. See <code>README.md</code> to connect the live Google Places API.</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
