@@ -1,4 +1,200 @@
-/*
+
+<style>
+  :root{
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    /* light (default) — blue-biased neutrals */
+    --bg:#eaeef6; --grad:#dfe6f5;
+    --panel:#ffffff; --panel-2:#f4f6fc; --line:#dde3f0;
+    --text:#111629; --muted:#5b6688; --faint:#8a94b4;
+    --accent:#3f5ce0; --accent-ink:#ffffff;
+    --good:#0f9d74; --warn:#b26a00; --prime:#3f5ce0;
+    --shadow: 0 10px 30px rgba(20,30,70,.10);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0a0f1f; --grad:#141d3c;
+      --panel:#121a32; --panel-2:#182142; --line:#28325a;
+      --text:#eef1fb; --muted:#9aa6cc; --faint:#6b779c;
+      --accent:#6f8cff; --accent-ink:#0a0f1f;
+      --good:#2fce9a; --warn:#f5b445; --prime:#8ea2ff;
+      --shadow: 0 12px 34px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eaeef6; --grad:#dfe6f5; --panel:#ffffff; --panel-2:#f4f6fc; --line:#dde3f0;
+    --text:#111629; --muted:#5b6688; --faint:#8a94b4; --accent:#3f5ce0; --accent-ink:#fff;
+    --good:#0f9d74; --warn:#b26a00; --prime:#3f5ce0; --shadow:0 10px 30px rgba(20,30,70,.10);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a0f1f; --grad:#141d3c; --panel:#121a32; --panel-2:#182142; --line:#28325a;
+    --text:#eef1fb; --muted:#9aa6cc; --faint:#6b779c; --accent:#6f8cff; --accent-ink:#0a0f1f;
+    --good:#2fce9a; --warn:#f5b445; --prime:#8ea2ff; --shadow:0 12px 34px rgba(0,0,0,.45);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);color:var(--text);line-height:1.5;
+    background:radial-gradient(1100px 520px at 82% -8%, var(--grad) 0%, transparent 60%), var(--bg);
+    min-height:100vh;-webkit-font-smoothing:antialiased;}
+  a{color:inherit}
+  .tabnum{font-variant-numeric:tabular-nums}
+
+  /* Sticky command bar */
+  header.bar{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);
+    background:color-mix(in srgb, var(--bg) 86%, transparent);
+    border-bottom:1px solid var(--line);}
+  .bar-inner{max-width:1120px;margin:0 auto;padding:14px 20px;display:flex;flex-direction:column;gap:12px}
+  .brandrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:800;
+    font-size:.82rem;letter-spacing:.5px;color:var(--accent-ink);
+    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%, #8a5cff));
+    box-shadow:var(--shadow)}
+  .brandrow h1{font-size:1.06rem;margin:0;font-weight:750;letter-spacing:-.01em}
+  .brandrow p{margin:0;color:var(--muted);font-size:.82rem}
+  .spacer{flex:1}
+  .theme-btn{border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    border-radius:8px;padding:6px 10px;font-size:.78rem;cursor:pointer;font-family:inherit}
+  .theme-btn:hover{color:var(--text);border-color:var(--accent)}
+
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld.grow{flex:1;min-width:240px}
+  .fld label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700}
+  input[type=text],select{font-family:inherit;font-size:.95rem;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;width:100%}
+  input[type=text]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%, transparent)}
+  select{min-width:210px;cursor:pointer}
+  button.go{font-family:inherit;font-weight:700;font-size:.95rem;color:var(--accent-ink);cursor:pointer;
+    border:none;border-radius:10px;padding:11px 22px;white-space:nowrap;
+    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%, #8a5cff))}
+  button.go:hover{filter:brightness(1.07)}
+  button.go:active{transform:translateY(1px)}
+  button.go:disabled{opacity:.6;cursor:default}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;min-height:0}
+  .chip{font-size:.72rem;padding:3px 9px;border-radius:999px;font-weight:600;
+    background:color-mix(in srgb,var(--accent) 14%, transparent);color:var(--accent);
+    border:1px solid color-mix(in srgb,var(--accent) 40%, transparent)}
+  details.adv summary{cursor:pointer;color:var(--muted);font-size:.78rem;font-weight:600;user-select:none;list-style:none}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary::before{content:"⚙ ";opacity:.7}
+  .types{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:10px}
+  .type{display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);
+    border-radius:9px;background:var(--panel-2);cursor:pointer;font-size:.84rem}
+  .type input{margin-top:3px}
+  .type b{display:block}.type small{color:var(--muted);font-size:.74rem}
+
+  main{max-width:1120px;margin:0 auto;padding:20px}
+  .hint{color:var(--muted);font-size:.9rem;text-align:center;padding:48px 20px}
+  .hint b{color:var(--text)}
+
+  /* Summary strip */
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .stat{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;box-shadow:var(--shadow)}
+  .stat .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700}
+  .stat .v{font-size:1.5rem;font-weight:760;margin-top:2px;letter-spacing:-.02em}
+  .stat .s{font-size:.76rem;color:var(--muted)}
+
+  section.block{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:18px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .head{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+  .head h2{margin:0;font-size:1.12rem;letter-spacing:-.01em}
+  .badge{font-size:.66rem;font-weight:800;letter-spacing:.06em;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+  .badge.sample{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+  .badge.count{background:color-mix(in srgb,var(--prime) 18%,transparent);color:var(--prime);border:1px solid color-mix(in srgb,var(--prime) 40%,transparent)}
+  .note{color:var(--muted);font-size:.85rem;margin:4px 0 14px}
+
+  .portals{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .portal{font-size:.82rem;text-decoration:none;padding:7px 12px;border-radius:999px;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);display:inline-flex;gap:6px;align-items:center}
+  .portal:hover{border-color:var(--accent);color:var(--accent)}
+  .portal::before{content:"↗";color:var(--faint);font-size:.8rem}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+  .card{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:14px;display:flex;flex-direction:column}
+  .card .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .card h3{margin:0;font-size:.98rem;line-height:1.32;text-wrap:balance}
+  .meta{color:var(--muted);font-size:.8rem;margin:6px 0 0}
+  .bits{font-size:.79rem;color:var(--text);opacity:.85;margin:8px 0 0}
+  .focus{font-size:.87rem;margin:8px 0 0;color:var(--text);opacity:.9}
+  .link{margin-top:11px;align-self:flex-start;text-decoration:none;color:var(--accent);font-weight:650;font-size:.85rem}
+  .link:hover{text-decoration:underline}
+  .card.opp{border-left:3px solid var(--warn)}
+  .card.company[data-type="Startup"]{border-left:3px solid var(--good)}
+  .card.company[data-type="SME"]{border-left:3px solid var(--warn)}
+  .card.company[data-type="Prime"]{border-left:3px solid var(--prime)}
+
+  .pill{font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pill.Startup,.pill.active{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+  .pill.SME,.pill.sample{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+  .pill.Prime{background:color-mix(in srgb,var(--prime) 18%,transparent);color:var(--prime)}
+
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 14px}
+  .fbtn{font-family:inherit;font-size:.78rem;font-weight:650;cursor:pointer;padding:5px 12px;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--muted)}
+  .fbtn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+  .keep{display:inline-block;margin-top:14px;text-decoration:none;color:var(--accent);font-weight:650;font-size:.88rem}
+  .keep:hover{text-decoration:underline}
+  .empty{color:var(--muted);font-size:.9rem}
+
+  footer{max-width:820px;margin:0 auto;text-align:center;color:var(--faint);font-size:.76rem;padding:8px 20px 40px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (max-width:560px){.controls{flex-direction:column;align-items:stretch}button.go{width:100%}}
+</style>
+<title>BD Scout — Competitions & Companies</title>
+<header class="bar">
+  <div class="bar-inner">
+    <div class="brandrow">
+      <span class="mark">BD</span>
+      <div>
+        <h1>BD Scout</h1>
+        <p>Active government competitions &amp; the companies building your tech</p>
+      </div>
+      <span class="spacer"></span>
+      <button class="theme-btn" id="theme" type="button">◐ Theme</button>
+    </div>
+    <div class="controls">
+      <div class="fld grow">
+        <label for="interest">Interest area</label>
+        <input id="interest" type="text" autocomplete="off"
+          placeholder="e.g. drones, counter-UAS, helicopters, satellites, missiles…" />
+      </div>
+      <div class="fld">
+        <label for="country">Country / alliance</label>
+        <select id="country"></select>
+      </div>
+      <div class="fld">
+        <label>&nbsp;</label>
+        <button class="go" id="go" type="button">Scout →</button>
+      </div>
+    </div>
+    <div class="chips" id="chips" aria-hidden="true"></div>
+    <details class="adv"><summary>Competition types</summary><div class="types" id="types"></div></details>
+  </div>
+</header>
+
+<main id="main">
+  <p class="hint" id="hint">Enter an <b>interest area</b> and pick a <b>country or NATO</b>, then press <b>Scout</b>.<br/>
+  Try <b>drones · United States</b>, <b>counter-UAS · NATO</b>, or <b>satellites · Germany</b>.</p>
+  <div id="results" hidden>
+    <div class="summary" id="summary"></div>
+    <section class="block">
+      <div class="head"><h2>🎯 Active competitions</h2><span class="badge sample" id="oppBadge">Sample</span></div>
+      <p class="note" id="oppNote"></p>
+      <div class="portals" id="portals"></div>
+      <div class="grid" id="opps"></div>
+    </section>
+    <section class="block">
+      <div class="head"><h2>🏭 Companies &amp; startups</h2><span class="badge count" id="coBadge"></span></div>
+      <p class="note" id="coNote"></p>
+      <div class="filters" id="filters"></div>
+      <div class="grid" id="companies"></div>
+      <a class="keep" id="keep" target="_blank" rel="noopener" hidden>Keep digging on Google ↗</a>
+    </section>
+  </div>
+</main>
+<footer>Standalone demo. Competition links go to official portals (SAM.gov, NSPA/NCIA, EU TED, Find a Tender, CanadaBuys, AusTender…). Live SAM.gov listings need the Node server + a free API key. Company list is curated &amp; illustrative — verify before outreach.</footer>
+<script>/*
  * BD App — shared data layer
  * ------------------------------------------------------------------
  * Works in BOTH the browser (sets window.BD_DATA) and Node (module.exports),
@@ -424,3 +620,145 @@ const BD_DATA = {
 
 if (typeof module !== "undefined" && module.exports) module.exports = BD_DATA;
 if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
+</script>
+<script>
+(function(){
+  "use strict";
+  var D = window.BD_DATA;
+  var $ = function(id){return document.getElementById(id);};
+  function el(t,c,h){var n=document.createElement(t);if(c)n.className=c;if(h!=null)n.innerHTML=h;return n;}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]);});}
+
+  /* ---- theme toggle ---- */
+  $("theme").addEventListener("click",function(){
+    var cur=document.documentElement.getAttribute("data-theme");
+    var dark=cur? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", dark?"light":"dark");
+  });
+
+  /* ---- pickers ---- */
+  var sel=$("country");
+  D.COUNTRIES.forEach(function(c){var o=el("option");o.value=c.code;o.textContent=(c.flag||"")+" "+c.name;sel.appendChild(o);});
+  var any=el("option");any.value="ANY";any.textContent="🌍 Any / global";sel.appendChild(any);
+
+  D.NOTICE_TYPES.forEach(function(t){
+    var w=el("label","type");
+    w.innerHTML='<input type="checkbox" value="'+t.code+'" '+(t.on?"checked":"")+'/>'+
+      '<span><b>'+esc(t.label)+'</b><small>'+esc(t.desc)+'</small></span>';
+    $("types").appendChild(w);
+  });
+  function selTypes(){return [].map.call(document.querySelectorAll("#types input:checked"),function(i){return i.value;});}
+
+  $("interest").addEventListener("input",function(){
+    var box=$("chips");box.innerHTML="";
+    D.detectDomains($("interest").value).forEach(function(k){box.appendChild(el("span","chip",esc(D.DOMAINS[k].label)));});
+  });
+  $("interest").addEventListener("keydown",function(e){if(e.key==="Enter")run();});
+  $("go").addEventListener("click",run);
+
+  /* ---- client-side "backend" ---- */
+  function portalsFor(code,q){var c=D.COUNTRIES.find(function(x){return x.code===code;});return c?c.portals.map(function(p){return{name:p.name,url:p.url(q)};}):[];}
+  var TYPE_LABEL={r:"Sources Sought",i:"RFI / Special Notice",p:"Presolicitation",o:"Solicitation (RFP/RFQ)",k:"Combined Synopsis / Solicitation"};
+  function sampleOpps(q,country,types){
+    var topic=q||"defense capability";
+    var c=D.COUNTRIES.find(function(x){return x.code===country;});
+    var agency=country==="US"?"Dept. of Defense":country==="NATO"?"NSPA / NCIA":((c?c.name:"")+" MoD");
+    var all=[
+      {code:"r",title:"Sources Sought — "+topic+" capabilities & market survey",type:"Sources Sought",days:21,sole:"Small Business"},
+      {code:"i",title:"Request for Information (RFI): "+topic+" solutions",type:"RFI / Special Notice",days:30,sole:""},
+      {code:"p",title:"Presolicitation — upcoming "+topic+" procurement",type:"Presolicitation",days:45,sole:""},
+      {code:"k",title:"Combined Synopsis/Solicitation for "+topic,type:"Combined Synopsis / Solicitation",days:35,sole:""},
+      {code:"o",title:"Solicitation (RFP): "+topic+" — request for proposals",type:"Solicitation (RFP/RFQ)",days:40,sole:""}
+    ];
+    return all.filter(function(o){return !types.length || types.indexOf(o.code)>=0;})
+      .map(function(o){return{title:o.title,agency:agency,type:o.type,deadline:o.days+" days",setAside:o.sole,sample:true};});
+  }
+  function googleLink(interest,code){
+    var c=D.COUNTRIES.find(function(x){return x.code===code;});
+    var where=code==="NATO"?"NATO":(c?c.name:"");
+    return "https://www.google.com/search?q="+encodeURIComponent((interest+" defense companies and startups "+where).trim());
+  }
+
+  var lastCompanies=[], filter="All";
+
+  function run(){
+    var interest=$("interest").value.trim();
+    var country=$("country").value;
+    if(!interest){$("interest").focus();return;}
+    var types=selTypes();
+
+    var portals=portalsFor(country, interest||"defense");
+    var opps=sampleOpps(interest,country,types);
+    var res=D.searchCompanies(interest,country);
+
+    // summary
+    var startups=res.companies.filter(function(c){return c.type==="Startup";}).length;
+    var countries=Object.keys(res.companies.reduce(function(a,c){a[c.country]=1;return a;},{})).length;
+    $("summary").innerHTML=
+      stat("Competition types", opps.length, "sources sought · RFI · RFP…")+
+      stat("Companies", res.companies.length, startups+" startups · "+countries+" countries")+
+      stat("Scope", country==="NATO"?"NATO":(country==="ANY"?"Global":country), (res.domains[0]||"keyword match"));
+
+    // opportunities
+    $("oppNote").textContent="No free unified API for this jurisdiction from a static page — the links below open the official portal pre-filled with “"+interest+"”. Cards are illustrative examples of the notice types you’ll find there.";
+    var pbox=$("portals");pbox.innerHTML="";
+    portals.forEach(function(p){var a=el("a","portal");a.href=p.url;a.target="_blank";a.rel="noopener";a.appendChild(document.createTextNode(p.name));pbox.appendChild(a);});
+    var ob=$("opps");ob.innerHTML="";
+    if(!opps.length){ob.appendChild(el("p","empty","No notice types selected — tick some under “Competition types”."));}
+    opps.forEach(function(o){
+      var card=el("div","card opp");
+      var bits=[];if(o.deadline)bits.push("⏳ Response: "+esc(o.deadline));if(o.setAside)bits.push("🏷️ "+esc(o.setAside));
+      card.innerHTML='<div class="top"><h3>'+esc(o.title)+'</h3><span class="pill sample">sample</span></div>'+
+        '<p class="meta">'+esc(o.agency)+' · '+esc(o.type)+'</p>'+(bits.length?'<p class="bits">'+bits.join(' &nbsp;·&nbsp; ')+'</p>':'');
+      ob.appendChild(card);
+    });
+
+    // companies
+    lastCompanies=res.companies;
+    $("coBadge").textContent=res.companies.length+" found";
+    $("coNote").textContent=(res.domains.length?"Matched: "+res.domains.join(", ")+". ":"")+"Sorted startups-first.";
+    buildFilters();
+    renderCompanies();
+    var k=$("keep");k.href=googleLink(interest,country);k.hidden=false;
+
+    $("hint").hidden=true;$("results").hidden=false;
+    history.replaceState(null,"","?q="+encodeURIComponent(interest)+"&country="+country);
+  }
+
+  function stat(k,v,s){return '<div class="stat"><div class="k">'+esc(k)+'</div><div class="v tabnum">'+esc(v)+'</div><div class="s">'+esc(s)+'</div></div>';}
+
+  function buildFilters(){
+    var counts={All:lastCompanies.length,Startup:0,SME:0,Prime:0};
+    lastCompanies.forEach(function(c){counts[c.type]++;});
+    var order=[["All","All"],["Startup","Startups"],["SME","SMEs"],["Prime","Primes"]];
+    var box=$("filters");box.innerHTML="";
+    if(filter!=="All"&&counts[filter]===0)filter="All";
+    order.forEach(function(o){
+      if(o[0]!=="All"&&counts[o[0]]===0)return;
+      var b=el("button","fbtn",esc(o[1])+" "+counts[o[0]]);
+      b.type="button";b.setAttribute("aria-pressed",String(filter===o[0]));
+      b.addEventListener("click",function(){filter=o[0];buildFilters();renderCompanies();});
+      box.appendChild(b);
+    });
+  }
+
+  function renderCompanies(){
+    var box=$("companies");box.innerHTML="";
+    var list=lastCompanies.filter(function(c){return filter==="All"||c.type===filter;});
+    if(!list.length){box.appendChild(el("p","empty","No matches for that country + interest. Try “Any / global”, a broader term, or the Google link below."));return;}
+    list.forEach(function(c){
+      var card=el("div","card company");card.setAttribute("data-type",c.type);
+      card.innerHTML='<div class="top"><h3>'+esc(c.name)+'</h3><span class="pill '+c.type+'">'+esc(c.type)+'</span></div>'+
+        '<p class="meta">'+esc(c.country)+'</p><p class="focus">'+esc(c.focus)+'</p>';
+      if(c.url){var a=el("a","link");a.href=c.url;a.target="_blank";a.rel="noopener";a.textContent="Website ↗";card.appendChild(a);}
+      box.appendChild(card);
+    });
+  }
+
+  /* deep link */
+  var p=new URLSearchParams(location.search),q=p.get("q");
+  if(q){$("interest").value=q;var cc=p.get("country");
+    if(cc&&[].some.call(sel.options,function(o){return o.value===cc;}))sel.value=cc;
+    $("interest").dispatchEvent(new Event("input"));run();}
+})();
+</script>

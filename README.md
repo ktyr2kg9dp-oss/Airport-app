@@ -26,7 +26,15 @@ notices.
 > ⚠️ The company list is curated and illustrative — always verify a company's
 > current status, ownership and offerings before outreach.
 
-## Run locally
+## Run it
+
+**No install — just open the standalone build.** `standalone.html` is a single
+self-contained file that runs the whole app client-side (interest input,
+country/NATO selector, portal deep-links + sample notices, and the full
+company/startup database). Double-click it or host it anywhere. The only thing
+it can't do is *live* SAM.gov listings (that needs the Node server + a key).
+
+**Full app with live data — run the server:**
 
 ```bash
 npm install          # no third-party deps; uses Node's built-in http/fetch
