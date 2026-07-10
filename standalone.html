@@ -117,7 +117,8 @@
   .meta{color:var(--muted);font-size:.8rem;margin:6px 0 0}
   .bits{font-size:.79rem;color:var(--text);opacity:.85;margin:8px 0 0}
   .focus{font-size:.87rem;margin:8px 0 0;color:var(--text);opacity:.9}
-  .link{margin-top:11px;align-self:flex-start;text-decoration:none;color:var(--accent);font-weight:650;font-size:.85rem}
+  .links{margin-top:11px;display:flex;gap:14px;flex-wrap:wrap}
+  .link{text-decoration:none;color:var(--accent);font-weight:650;font-size:.85rem}
   .link:hover{text-decoration:underline}
   .card.opp{border-left:3px solid var(--warn)}
   .card.company[data-type="Startup"]{border-left:3px solid var(--good)}
@@ -701,7 +702,7 @@ if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
     return "https://www.google.com/search?q="+encodeURIComponent((interest+" defense companies and startups "+where).trim());
   }
 
-  var lastCompanies=[], filter="All";
+  var lastCompanies=[], filter="All", lastInterest="";
 
   function run(){
     var interest=$("interest").value.trim();
@@ -736,7 +737,7 @@ if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
     });
 
     // companies
-    lastCompanies=res.companies;
+    lastCompanies=res.companies;lastInterest=interest;
     $("coBadge").textContent=res.companies.length+" found";
     $("coNote").textContent=(res.domains.length?"Matched: "+res.domains.join(", ")+". ":"")+"Sorted startups-first.";
     buildFilters();
@@ -770,9 +771,14 @@ if (typeof window !== "undefined") window.BD_DATA = BD_DATA;
     if(!list.length){box.appendChild(el("p","empty","No matches for that country + interest. Try “Any / global”, a broader term, or the Google link below."));return;}
     list.forEach(function(c){
       var card=el("div","card company");card.setAttribute("data-type",c.type);
+      var pq=(c.name+" "+lastInterest).trim();
       card.innerHTML='<div class="top"><h3>'+esc(c.name)+'</h3><span class="pill '+c.type+'">'+esc(c.type)+'</span></div>'+
         '<p class="meta">'+esc(c.country)+'</p><p class="focus">'+esc(c.focus)+'</p>';
-      if(c.url){var a=el("a","link");a.href=c.url;a.target="_blank";a.rel="noopener";a.textContent="Website ↗";card.appendChild(a);}
+      var links=el("div","links");
+      if(c.url){var a=el("a","link");a.href=c.url;a.target="_blank";a.rel="noopener";a.textContent="Website ↗";links.appendChild(a);}
+      var ph=el("a","link");ph.href="https://www.google.com/search?tbm=isch&q="+encodeURIComponent(pq);
+      ph.target="_blank";ph.rel="noopener";ph.textContent="📷 Photos ↗";links.appendChild(ph);
+      card.appendChild(links);
       box.appendChild(card);
     });
   }

@@ -9,7 +9,9 @@ munitions*), pick a **country or NATO**, and BD Scout returns:
    Presolicitations, Solicitations (RFP/RFQ) and Combined Synopsis notices,
    plus deep links into the relevant official procurement portal.
 2. **🏭 Companies & startups** — primes, SMEs and startups developing that
-   technology in the selected country, sorted **startups-first**.
+   technology in the selected country, sorted **startups-first**. Each card
+   carries a **📷 Photos** link (Google Images for that company + product) and,
+   when `SERPAPI_KEY` is set, shows **two inline product thumbnails**.
 
 ## How it works
 
@@ -58,6 +60,7 @@ SAM_API_KEY=your_sam_key SERPAPI_KEY=your_serpapi_key node server.js
 | `GET /api/meta` | Countries, notice types and domains for the UI pickers |
 | `GET /api/opportunities?interest=drones&country=US&types=r,i,p,o,k` | Competitions + portal links |
 | `GET /api/companies?interest=drones&country=NATO` | Curated companies (+ web results if enabled) |
+| `GET /api/images?q=Skydio%20drones` | Up to 2 product thumbnails (needs `SERPAPI_KEY`) |
 
 Notice-type codes map to SAM.gov `ptype`: `r` Sources Sought · `i` RFI/Special
 Notice · `p` Presolicitation · `o` Solicitation (RFP/RFQ) · `k` Combined

@@ -183,6 +183,12 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 .card-meta { color: var(--muted); font-size: 0.82rem; margin: 6px 0 0; }
 .card-bits { font-size: 0.8rem; margin: 8px 0 0; color: #c3cbe8; }
 .card-focus { font-size: 0.88rem; margin: 8px 0 0; color: #d5dcf5; }
+.card-links {
+  margin-top: 10px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 .card-link {
   margin-top: 10px;
   align-self: flex-start;
@@ -191,7 +197,22 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
   font-size: 0.86rem;
   font-weight: 600;
 }
+.card-links .card-link { margin-top: 0; }
 .card-link:hover { text-decoration: underline; }
+
+/* Product photo thumbnails */
+.photos { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.photos:empty { margin-top: 0; }
+.thumb {
+  display: block;
+  width: 108px;
+  height: 74px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .pill {
   font-size: 0.68rem;

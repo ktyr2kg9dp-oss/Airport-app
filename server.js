@@ -47,6 +47,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/meta") return handleMeta(res);
   if (url.pathname === "/api/opportunities") return handleOpportunities(url, res);
   if (url.pathname === "/api/companies") return handleCompanies(url, res);
+  if (url.pathname === "/api/images") return handleImages(url, res);
   return serveStatic(url, res);
 });
 
@@ -228,6 +229,42 @@ async function serpCompanySearch(interest, countryCode) {
     url: o.link || "",
     source: (o.displayed_link || "").split("/")[0] || "",
   }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Product photos (SerpApi Google Images)                             */
+/* ------------------------------------------------------------------ */
+const imageCache = new Map();
+const IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function handleImages(url, res) {
+  const q = (url.searchParams.get("q") || "").trim();
+  if (!q) return json(res, 400, { ok: false, images: [] });
+  if (!SERPAPI_KEY) return json(res, 200, { ok: false, reason: "no-key", images: [] });
+
+  const key = q.toLowerCase();
+  const hit = imageCache.get(key);
+  if (hit && hit.expires > Date.now()) return json(res, 200, hit.value);
+
+  try {
+    const base = process.env.SERPAPI_BASE || "https://serpapi.com/search.json";
+    const api = new URL(base);
+    api.searchParams.set("engine", "google_images");
+    api.searchParams.set("q", q);
+    api.searchParams.set("hl", "en");
+    api.searchParams.set("api_key", SERPAPI_KEY);
+    const data = await (await fetch(api.toString())).json();
+    if (data.error) throw new Error(data.error);
+    const images = (data.images_results || [])
+      .slice(0, 2)
+      .map((i) => ({ thumb: i.thumbnail, link: i.link || i.source || "" }))
+      .filter((i) => i.thumb);
+    const value = { ok: images.length > 0, images };
+    imageCache.set(key, { value, expires: Date.now() + IMAGE_TTL_MS });
+    return json(res, 200, value);
+  } catch (err) {
+    return json(res, 200, { ok: false, reason: err.message, images: [] });
+  }
 }
 
 /* ------------------------------------------------------------------ */

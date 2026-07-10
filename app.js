@@ -200,20 +200,33 @@
       box.appendChild(el("p", "empty",
         "No curated matches for that country + interest. Try “Any / global”, a broader term, or the Google link below."));
     }
+    const interest = d.interest || "";
     list.forEach((c) => {
       const card = el("div", "card company");
       const cls = c.type === "Startup" ? "startup" : c.type === "SME" ? "sme" : "prime";
+      const photoQuery = `${c.name} ${interest}`.trim();
       card.innerHTML =
         `<div class="card-top"><h3>${esc(c.name)}</h3><span class="pill ${cls}">${esc(c.type)}</span></div>` +
         `<p class="card-meta">${esc(c.country)}</p>` +
-        `<p class="card-focus">${esc(c.focus)}</p>`;
+        `<p class="card-focus">${esc(c.focus)}</p>` +
+        `<div class="photos" aria-label="Product photos"></div>`;
+      const links = el("div", "card-links");
       if (c.url) {
         const a = el("a", "card-link");
         a.href = c.url; a.target = "_blank"; a.rel = "noopener";
         a.textContent = "Website →";
-        card.appendChild(a);
+        links.appendChild(a);
       }
+      const ph = el("a", "card-link photo-link");
+      ph.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(photoQuery)}`;
+      ph.target = "_blank"; ph.rel = "noopener";
+      ph.textContent = "📷 Photos →";
+      links.appendChild(ph);
+      card.appendChild(links);
       box.appendChild(card);
+
+      // Try to load 2 inline product thumbnails (needs SERPAPI_KEY on server).
+      loadPhotos(card.querySelector(".photos"), photoQuery);
     });
 
     // Live web results (when SERPAPI_KEY is set on the server).
@@ -232,6 +245,25 @@
     const link = $("searchLink");
     if (d.searchLink) { link.href = d.searchLink; link.hidden = false; }
     else link.hidden = true;
+  }
+
+  /* Fetch up to 2 product thumbnails for a card. Silently no-ops when the
+   * server has no image key (the "📷 Photos" link still works). */
+  async function loadPhotos(container, query) {
+    if (!container || !query) return;
+    try {
+      const r = await fetch(`/api/images?q=${encodeURIComponent(query)}`);
+      const d = await r.json();
+      if (!d.ok || !d.images || !d.images.length) return;
+      d.images.slice(0, 2).forEach((im) => {
+        const a = el("a", "thumb");
+        a.href = im.link || im.thumb; a.target = "_blank"; a.rel = "noopener";
+        const img = el("img");
+        img.src = im.thumb; img.loading = "lazy"; img.alt = query;
+        a.appendChild(img);
+        container.appendChild(a);
+      });
+    } catch (e) { /* leave the Photos link as the fallback */ }
   }
 
   function setStatus(msg, isError) {
