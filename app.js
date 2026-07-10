@@ -43,19 +43,14 @@
    * deterministically from the hotel's nightly price so they are stable between
    * reloads. Returns objects sorted cheapest-first.
    */
-  function buildOffers(hotel, cityName, checkin, checkout, nights) {
+  function buildOffers(hotel, cityName, checkin, checkout) {
     const query = encodeURIComponent(`${hotel.name}, ${cityName}`);
     return PROVIDERS
       .map((p) => {
         // Deterministic per hotel+provider jitter in the range ~0.95–1.07.
         const rng = seededRandom(hashString(hotel.id + p.name));
         const perNight = Math.round(hotel.pricePerNight * p.mult * (0.95 + rng() * 0.12));
-        return {
-          provider: p.name,
-          perNight,
-          total: nights ? perNight * nights : null,
-          url: p.url(query, checkin, checkout),
-        };
+        return { provider: p.name, perNight, url: p.url(query, checkin, checkout) };
       })
       .sort((a, b) => a.perNight - b.perNight);
   }
@@ -234,7 +229,7 @@
     runHotelSearch();
   });
 
-  function runHotelSearch() {
+  async function runHotelSearch() {
     const cityKey = getCityKey(cityInput.value);
     const checkin = document.getElementById("hotel-checkin").value;
     const checkout = document.getElementById("hotel-checkout").value;
@@ -256,17 +251,52 @@
 
     const nights = nightsBetween(checkin, checkout);
 
-    // Build candidate list with computed metrics.
-    let hotels = getHotelsForCity(cityKey).map((h) => ({
-      ...h,
-      distance: poi ? distanceKm(h, poi) : null,
-    }));
+    // 1) Try LIVE prices from the backend (real Booking.com / Expedia / Hotels.com
+    //    rates via Google Hotels). 2) Fall back to bundled sample data if the
+    //    server or API key isn't available.
+    showEmpty("Searching live prices…");
+    const live = await fetchLiveHotels(cityKey, checkin, checkout);
+
+    let hotels, live_mode, notice;
+    if (live && live.hotels.length) {
+      hotels = live.hotels.map((h) => ({
+        ...h,
+        distance: poi && h.lat != null && h.lng != null ? distanceKm(h, poi) : null,
+      }));
+      live_mode = true;
+    } else {
+      hotels = getHotelsForCity(cityKey).map((h) => ({
+        ...h,
+        distance: poi ? distanceKm(h, poi) : null,
+      }));
+      live_mode = false;
+      notice = (live && live.reason) ||
+        "Showing sample prices. Run the app with the backend server and a SerpApi key for live prices.";
+    }
+
+    // If ranking by distance but live data lacked coordinates, guard it.
+    if (criteriaOrder.includes("distance") && hotels.every((h) => h.distance == null)) {
+      return showEmpty("Live results didn't include map coordinates, so distance ranking isn't available for this search. Remove the distance criterion or try another city.");
+    }
 
     hotels = rankHotels(hotels, criteriaOrder);
 
     renderHotelResults(hotels.slice(0, 5), {
-      cityKey, poi, checkin, checkout, nights,
+      cityKey, poi, checkin, checkout, nights, live_mode, notice,
     });
+  }
+
+  /* Ask the backend for live prices. Returns null if unreachable (e.g. the app
+   * is opened as a static file with no server behind it). */
+  async function fetchLiveHotels(city, checkin, checkout) {
+    try {
+      const params = new URLSearchParams({ city, checkin, checkout });
+      const res = await fetch(`/api/search?${params.toString()}`, { headers: { Accept: "application/json" } });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_) {
+      return null; // no backend available
+    }
   }
 
   /*
@@ -322,31 +352,48 @@
       ? ` · ${ctx.checkin} → ${ctx.checkout} (${ctx.nights} night${ctx.nights === 1 ? "" : "s"})`
       : "";
 
+    const badge = ctx.live_mode
+      ? `<span class="live-badge live-on">● Live prices</span>`
+      : `<span class="live-badge live-off">Sample prices</span>`;
+
     let html = `
       <div class="results-head">
-        <h2>Top 5 hotels in ${escapeHtml(city.name)}</h2>
+        <h2>Top 5 hotels in ${escapeHtml(city.name)} ${badge}</h2>
         <span class="sub">Ranked by: ${escapeHtml(criteriaText)}${dateText}</span>
       </div>`;
 
+    if (!ctx.live_mode && ctx.notice) {
+      html += `<div class="notice">${escapeHtml(ctx.notice)}</div>`;
+    }
+
     hotels.forEach((h, i) => {
       const meta = [];
-      meta.push(`<span class="star">⭐ <b>${h.reviewScore.toFixed(1)}</b></span> <span>(${h.reviewCount.toLocaleString()} reviews)</span>`);
+      if (h.reviewScore != null) {
+        const reviews = h.reviewCount ? ` <span>(${h.reviewCount.toLocaleString()} reviews)</span>` : "";
+        meta.push(`<span class="star">⭐ <b>${h.reviewScore.toFixed(1)}</b></span>${reviews}`);
+      }
       if (h.distance != null) {
         meta.push(`<span>📍 <b>${h.distance.toFixed(1)} km</b> from ${escapeHtml(ctx.poi.name)}</span>`);
       }
 
-      const offers = buildOffers(h, city.name, ctx.checkin, ctx.checkout, ctx.nights);
-      const fromPrice = offers[0].perNight; // cheapest of the three outcomes
+      // Live results carry real per-provider offers; sample results synthesise them.
+      const offers = (h.offers && h.offers.length)
+        ? h.offers
+        : buildOffers(h, city.name, ctx.checkin, ctx.checkout);
+      const fromPrice = offers[0].perNight; // cheapest reservation outcome
 
-      const offerRows = offers.map((o, idx) => `
+      const offerRows = offers.map((o, idx) => {
+        const total = ctx.nights ? o.perNight * ctx.nights : null;
+        return `
         <li class="offer${idx === 0 ? " is-best" : ""}">
           <span class="offer-provider">${escapeHtml(o.provider)}${idx === 0 ? ' <em>Best price</em>' : ""}</span>
           <span class="offer-price">
-            <b>$${o.perNight}</b><span class="offer-per"> / night</span>
-            ${o.total ? `<span class="offer-total">$${o.total.toLocaleString()} total</span>` : ""}
+            <b>$${o.perNight.toLocaleString()}</b><span class="offer-per"> / night</span>
+            ${total ? `<span class="offer-total">$${total.toLocaleString()} total</span>` : ""}
           </span>
           <a class="offer-link" href="${o.url}" target="_blank" rel="noopener noreferrer">Reserve →</a>
-        </li>`).join("");
+        </li>`;
+      }).join("");
 
       html += `
         <article class="hotel-card">
@@ -354,7 +401,7 @@
           <div class="hotel-main">
             <div class="hotel-top">
               <h3>${escapeHtml(h.name)}</h3>
-              <div class="hotel-from"><span>from</span> <b>$${fromPrice}</b><small>/night</small></div>
+              <div class="hotel-from"><span>from</span> <b>$${fromPrice.toLocaleString()}</b><small>/night</small></div>
             </div>
             <div class="hotel-meta">${meta.join("")}</div>
             <ul class="offers" aria-label="Reservation options for ${escapeHtml(h.name)}">

@@ -236,6 +236,26 @@ body {
 .results-head h2 { margin: 0; font-size: 20px; }
 .results-head .sub { color: var(--muted); font-size: 14px; }
 
+.live-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  vertical-align: 3px;
+  margin-left: 6px;
+}
+.live-badge.live-on { color: var(--good); border: 1px solid var(--good); }
+.live-badge.live-off { color: var(--warn); border: 1px solid var(--warn); }
+
+.notice {
+  background: rgba(255, 181, 71, 0.12);
+  border: 1px solid var(--warn);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
 .hotel-card {
   display: grid;
   grid-template-columns: 54px 1fr;

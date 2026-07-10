@@ -4,7 +4,35 @@ A lightweight web app to **locate flights and hotels**. Search hotels by
 **city** and **point of interest**, pick your **check-in / check-out** dates,
 and get the **top 5 hotels** ranked by your chosen priorities.
 
-No build step, no dependencies — just open `index.html` in a browser.
+No build dependencies. Open `index.html` for a quick look with sample data, or
+run the included server to get **real live prices on every search**.
+
+## Live prices (real Booking.com / Expedia / Hotels.com rates)
+
+Every hotel search can pull **real, current prices** and show you the cheapest,
+automatically — no manual looking. This uses the [SerpApi Google Hotels API](https://serpapi.com/google-hotels-api),
+which aggregates live rates across Booking.com, Expedia, Hotels.com and more.
+Your API key stays on the server and never reaches the browser.
+
+**One-time setup (~3 minutes):**
+
+1. Create a free key at <https://serpapi.com/users/sign_up> and copy it from
+   <https://serpapi.com/manage-api-key>.
+2. Start the app with your key:
+
+   ```bash
+   SERPAPI_KEY=your_key_here node server.js
+   # then open http://localhost:3000
+   ```
+
+That's it. From then on **every search** fetches live prices, tags the results
+**● Live prices**, and ranks the three cheapest booking options per hotel with
+working links straight to each provider.
+
+If `SERPAPI_KEY` isn't set (or you just open `index.html` directly), the app
+falls back to bundled **sample** prices and says so — nothing breaks.
+
+> Requires Node 18+ (uses the built-in `fetch`). No `npm install` needed.
 
 ## Features
 
@@ -36,10 +64,13 @@ The app normalises each metric to a 0–1 score, weights them by priority
 ### Reservation options
 Every hotel result lists **three ways to reserve it** — one per booking
 provider (Booking.com, Expedia, Hotels.com). Each option shows its own
-**per-night and total price** and a **Reserve** link that opens a real search
-for that hotel and your dates on the provider's site. Options are sorted
+**per-night and total price** and a **Reserve** link. Options are sorted
 cheapest-first and the lowest is tagged **Best price**; the card headline shows
 the resulting "from" price.
+
+With **live prices** enabled (see above) these are the **real current rates**
+each provider is charging, pulled per search. Without a key, they're realistic
+sample prices so you can see how it works.
 
 > Selecting **Distance from point of interest** requires a point of interest to
 > be chosen; the app will prompt you if it's missing.
@@ -49,16 +80,15 @@ Flight mode estimates distance, flight time and a price between two cities.
 
 ## Running it
 
-Because the app is fully static, you can either open the file directly or serve
-it locally:
-
 ```bash
-# Option A: just open it
-open index.html            # macOS   (use `xdg-open` on Linux / double-click on Windows)
+# Recommended: run the server for LIVE prices (see "Live prices" above)
+SERPAPI_KEY=your_key_here node server.js   # http://localhost:3000
 
-# Option B: serve it (recommended, avoids any file:// quirks)
-python3 -m http.server 8000
-# then visit http://localhost:8000
+# Or run the server without a key to preview with sample prices
+node server.js
+
+# Or just open the file (sample prices only, no server)
+open index.html            # macOS  (xdg-open on Linux / double-click on Windows)
 ```
 
 ## Project structure
@@ -67,8 +97,14 @@ python3 -m http.server 8000
 index.html   # markup: mode switch, hotel & flight forms, results container
 styles.css   # styling / responsive layout
 data.js      # bundled cities + points of interest, hotel generator, geo helpers
-app.js       # UI logic: autocomplete, criteria ordering, ranking, rendering
+app.js       # UI logic: autocomplete, criteria ordering, live fetch, ranking, rendering
+server.js    # backend: serves the app + /api/search live-price proxy (SerpApi)
 ```
+
+### Always-on / deploy
+`node server.js` is per-machine. To have live prices available anywhere without
+keeping a terminal open, deploy `server.js` to any Node host (Render, Railway,
+Fly.io, a VPS) and set `SERPAPI_KEY` as an environment variable there.
 
 ## How ranking works
 
