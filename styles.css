@@ -216,6 +216,123 @@ body {
 }
 .criteria-order b { color: var(--text); }
 
+/* Chip multi-select (airports / airlines) */
+.chipselect { margin-bottom: 14px; }
+.chipselect > label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.chipselect > label .hint { text-transform: none; letter-spacing: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.chips:empty { display: none; }
+.chip-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: rgba(79, 140, 255, 0.16);
+  border: 1px solid var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.chip-token button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.chip-token button:hover { background: var(--accent); }
+.field select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+.field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.2); }
+
+/* Flight results */
+.flight-result {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.airline-badge {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 15px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+}
+.flight-body h3 { margin: 0 0 4px; font-size: 16px; }
+.flight-route {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  margin: 0 0 4px;
+}
+.flight-route .arrow { color: var(--muted); margin: 0 8px; font-weight: 400; }
+.flight-times { color: var(--muted); font-size: 14px; }
+.flight-times b { color: var(--text); }
+.flight-tags { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.flight-tags .tag { display: inline-flex; align-items: center; gap: 4px; }
+.flight-tags .cabin { color: var(--accent); font-weight: 700; }
+.flight-cost { text-align: right; }
+.flight-cost .amt { font-size: 22px; font-weight: 800; }
+.flight-cost .per { color: var(--muted); font-size: 12px; }
+
+.search-summary {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.search-summary h2 { margin: 0 0 10px; font-size: 18px; }
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 18px;
+}
+.summary-item .k {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.summary-item .v { font-size: 14px; font-weight: 600; }
+
+@media (max-width: 600px) {
+  .flight-result { grid-template-columns: 40px 1fr; }
+  .flight-cost { grid-column: 2; text-align: left; }
+}
+
 /* Deep-analysis toggle */
 .deep-toggle {
   display: flex;

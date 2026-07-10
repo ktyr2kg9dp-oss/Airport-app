@@ -2,7 +2,8 @@
 (function () {
   "use strict";
 
-  const { CITIES, POIS, getHotelsForCity, distanceKm } = window.OflightsData;
+  const { CITIES, POIS, getHotelsForCity, distanceKm,
+          AIRPORTS, AIRLINES, ALLIANCES } = window.OflightsData;
 
   const CRITERIA_LABELS = {
     price: "Price per night",
@@ -179,8 +180,6 @@
   // Clearing / changing city resets the POI selection.
   cityInput.addEventListener("ac:select", () => { poiInput.value = ""; });
 
-  attachAutocomplete(flightForm.querySelector('[data-field="from"]'), matchCities);
-  attachAutocomplete(flightForm.querySelector('[data-field="to"]'), matchCities);
 
   /* ---------------------------------------------------------------- */
   /* Criteria ordering (top 3 in priority order)                      */
@@ -695,34 +694,300 @@
     results.innerHTML = `<div class="empty">${escapeHtml(msg)}</div>`;
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Flight search (basic companion feature)                          */
-  /* ---------------------------------------------------------------- */
+  /* ================================================================ */
+  /* Flight search                                                    */
+  /* ================================================================ */
+
+  // Populate the "hour of departure" dropdown: Anytime + every hour.
+  (function fillHours() {
+    const sel = document.getElementById("flight-hour");
+    let opts = `<option value="any">Anytime</option>`;
+    for (let h = 0; h < 24; h++) {
+      const hh = String(h).padStart(2, "0") + ":00";
+      opts += `<option value="${hh}">${hh}</option>`;
+    }
+    sel.innerHTML = opts;
+  })();
+
+  // Airport / airline suggestion matchers.
+  function matchAirports(query, chosen) {
+    const q = query.trim().toLowerCase();
+    const taken = new Set(chosen.map((c) => c.value));
+    return AIRPORTS
+      .filter((a) => !taken.has(a.code))
+      .filter((a) => !q || a.code.toLowerCase().includes(q) ||
+                     a.city.toLowerCase().includes(q) || a.name.toLowerCase().includes(q))
+      .slice(0, 8)
+      .map((a) => ({ value: a.code, label: `${a.code} · ${a.city}`, hint: a.name }));
+  }
+  function matchAirlines(query, chosen) {
+    const q = query.trim().toLowerCase();
+    const taken = new Set(chosen.map((c) => c.value));
+    return AIRLINES
+      .filter((a) => !taken.has(a.code))
+      .filter((a) => !q || a.name.toLowerCase().includes(q) || a.code.toLowerCase().includes(q) ||
+                     (a.alliance && a.alliance.toLowerCase().includes(q)))
+      .slice(0, 8)
+      .map((a) => ({ value: a.code, label: a.name, hint: a.alliance || "" }));
+  }
+
+  /* A reusable chip multi-select: type to search, click/Enter to add a chip,
+   * ✕ to remove. Enforces the data-max limit. Returns { getItems }. */
+  function attachChipSelect(wrapper, getMatches) {
+    const input = wrapper.querySelector("[data-cinput]");
+    const chipsBox = wrapper.querySelector("[data-chips]");
+    const list = wrapper.querySelector(".suggestions");
+    const max = Number(wrapper.dataset.max) || 5;
+    const placeholder = input.getAttribute("placeholder");
+    const items = [];
+    let matches = [], activeIndex = -1;
+
+    function close() { list.hidden = true; list.innerHTML = ""; input.setAttribute("aria-expanded", "false"); activeIndex = -1; }
+    function renderChips() {
+      chipsBox.innerHTML = items.map((it, i) =>
+        `<span class="chip-token">${escapeHtml(it.label)}<button type="button" data-rm="${i}" aria-label="Remove ${escapeHtml(it.label)}">✕</button></span>`).join("");
+      const full = items.length >= max;
+      input.disabled = full;
+      input.placeholder = full ? `Maximum ${max} selected` : placeholder;
+    }
+    function add(m) {
+      if (!m || items.length >= max || items.some((x) => x.value === m.value)) return;
+      items.push({ value: m.value, label: m.label });
+      input.value = ""; close(); renderChips();
+    }
+    function render(ms) {
+      matches = ms;
+      if (!ms.length) { close(); return; }
+      list.innerHTML = ms.map((m, i) =>
+        `<li role="option" data-i="${i}">${escapeHtml(m.label)}${m.hint ? `<small>${escapeHtml(m.hint)}</small>` : ""}</li>`).join("");
+      list.hidden = false; input.setAttribute("aria-expanded", "true"); activeIndex = -1;
+    }
+
+    input.addEventListener("input", () => render(getMatches(input.value, items)));
+    input.addEventListener("focus", () => { const ms = getMatches(input.value, items); if (ms.length) render(ms); });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (list.hidden) return;
+        e.preventDefault();
+        const d = e.key === "ArrowDown" ? 1 : -1;
+        activeIndex = (activeIndex + d + matches.length) % matches.length;
+        [...list.children].forEach((li, i) => li.classList.toggle("is-active", i === activeIndex));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (activeIndex >= 0) add(matches[activeIndex]);
+        else if (matches.length) add(matches[0]);
+        else if (input.value.trim()) add({ value: input.value.trim().toUpperCase(), label: input.value.trim().toUpperCase() });
+      } else if (e.key === "Escape") { close(); }
+    });
+    list.addEventListener("mousedown", (e) => {
+      const li = e.target.closest("li");
+      if (li) { e.preventDefault(); add(matches[Number(li.dataset.i)]); }
+    });
+    chipsBox.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-rm]");
+      if (btn) { items.splice(Number(btn.dataset.rm), 1); renderChips(); }
+    });
+    document.addEventListener("click", (e) => { if (!wrapper.contains(e.target)) close(); });
+
+    return { getItems: () => items.slice() };
+  }
+
+  const originSelect = attachChipSelect(flightForm.querySelector('[data-kind="origin"]'), matchAirports);
+  const destSelect = attachChipSelect(flightForm.querySelector('[data-kind="destination"]'), matchAirports);
+  const airlineSelect = attachChipSelect(document.getElementById("airline-specific"), matchAirlines);
+
+  // Date mode: show/hide the second date input.
+  flightForm.querySelectorAll('input[name="datemode"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      const range = flightForm.querySelector('input[name="datemode"]:checked').value === "range";
+      document.getElementById("flight-date2-wrap").hidden = !range;
+      document.getElementById("flight-date1-label").textContent = range ? "From date" : "Date";
+    });
+  });
+
+  // Airline mode: show the specific-airlines picker or the alliance picker.
+  flightForm.querySelectorAll('input[name="airmode"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      const mode = flightForm.querySelector('input[name="airmode"]:checked').value;
+      document.getElementById("airline-specific").hidden = mode !== "specific";
+      document.getElementById("airline-alliance").hidden = mode !== "alliance";
+    });
+  });
+
   flightForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const from = getCityKey(document.getElementById("flight-from").value);
-    const to = getCityKey(document.getElementById("flight-to").value);
-    const depart = document.getElementById("flight-depart").value;
-    if (!from || !to) return showEmpty("Choose a departure and destination city from the list.");
-    if (from === to) return showEmpty("Departure and destination must be different cities.");
-
-    const a = CITIES.find((c) => c.name === from);
-    const b = CITIES.find((c) => c.name === to);
-    const km = distanceKm(a, b);
-    const hours = km / 800; // ~cruising speed
-    const price = Math.round(60 + km * 0.09);
-
-    results.innerHTML = `
-      <div class="results-head"><h2>Flight ${escapeHtml(from)} → ${escapeHtml(to)}</h2>
-        <span class="sub">${depart ? "Departs " + escapeHtml(depart) : "One-way estimate"}</span></div>
-      <div class="flight-card">
-        <div>
-          <div class="flight-route">${escapeHtml(from)} → ${escapeHtml(to)}</div>
-          <div class="flight-sub">${km.toFixed(0)} km · about ${hours.toFixed(1)} h flight time</div>
-        </div>
-        <div class="flight-price">$${price}</div>
-      </div>`;
+    runFlightSearch();
   });
+
+  function runFlightSearch() {
+    const origins = originSelect.getItems().map((x) => x.value);
+    const destinations = destSelect.getItems().map((x) => x.value);
+    if (!origins.length) return showEmpty("Add at least one origin airport.");
+    if (!destinations.length) return showEmpty("Add at least one destination airport.");
+
+    const dateMode = flightForm.querySelector('input[name="datemode"]:checked').value;
+    const date1 = document.getElementById("flight-date1").value;
+    const date2 = document.getElementById("flight-date2").value;
+    if (!date1) return showEmpty("Choose a flight date.");
+    if (dateMode === "range" && !date2) return showEmpty("Choose the second date of your range.");
+    if (dateMode === "range" && date2 < date1) return showEmpty("The second date must be on or after the first date.");
+
+    const hour = document.getElementById("flight-hour").value;
+    const cabin = flightForm.querySelector('input[name="cabin"]:checked').value;
+    const airmode = flightForm.querySelector('input[name="airmode"]:checked').value;
+    const airlineCodes = airlineSelect.getItems().map((x) => x.value);
+    const allianceEl = flightForm.querySelector('input[name="alliance"]:checked');
+    const alliance = allianceEl ? allianceEl.value : null;
+    const luggage = [...flightForm.querySelectorAll('input[name="luggage"]:checked')].map((c) => c.value);
+
+    if (airmode === "specific" && !airlineCodes.length) {
+      return showEmpty("Add at least one airline, or choose “Any airline”.");
+    }
+    if (airmode === "alliance" && !alliance) {
+      return showEmpty("Pick an alliance, or choose “Any airline”.");
+    }
+
+    const sel = { origins, destinations, dateMode, date1, date2, hour, cabin, airmode, airlineCodes, alliance, luggage };
+    const flights = generateFlights(sel);
+    renderFlights(flights, sel);
+  }
+
+  /* Airlines that match the current selection. */
+  function airlinePool(sel) {
+    if (sel.airmode === "alliance") return AIRLINES.filter((a) => a.alliance === sel.alliance);
+    if (sel.airmode === "specific") {
+      return sel.airlineCodes.map((code) =>
+        AIRLINES.find((a) => a.code === code) || { code, name: code, alliance: null });
+    }
+    return AIRLINES;
+  }
+
+  const CABIN_MULT = { Economy: 1, Premium: 1.7, Business: 3.4 };
+  const LUGGAGE_LABEL = { hand: "🎒 Hand luggage", bag1: "🧳 1×23 kg", bag2: "🧳 2nd 23 kg" };
+
+  /* Build a set of representative flights that honour every selection. */
+  function generateFlights(sel) {
+    const pool = airlinePool(sel);
+    if (!pool.length) return [];
+    const seedStr = JSON.stringify(sel);
+    const rng = seededRandom(hashString(seedStr));
+    const rangeDays = sel.dateMode === "range"
+      ? Math.max(0, Math.round((new Date(sel.date2) - new Date(sel.date1)) / 86400000)) : 0;
+
+    const out = [];
+    const count = 6;
+    for (let i = 0; i < count; i++) {
+      const origin = sel.origins[i % sel.origins.length];
+      let destination = sel.destinations[i % sel.destinations.length];
+      if (destination === origin && sel.destinations.length > 1) {
+        destination = sel.destinations[(i + 1) % sel.destinations.length];
+      }
+      const airline = pool[Math.floor(rng() * pool.length)];
+
+      // Date within the range (or the single date).
+      const dayOffset = rangeDays ? Math.floor(rng() * (rangeDays + 1)) : 0;
+      const flightDate = new Date(sel.date1); flightDate.setDate(flightDate.getDate() + dayOffset);
+
+      // Departure hour: honour the chosen hour, otherwise vary across the day.
+      const depHour = sel.hour === "any" ? 5 + Math.floor(rng() * 17) : parseInt(sel.hour, 10);
+      const depMin = sel.hour === "any" ? (rng() < 0.5 ? 0 : 30) : 0;
+      const durationMin = 90 + (hashString(origin + destination) % 690);
+      const stops = rng() < 0.5 ? 0 : 1;
+
+      const legKm = 300 + (hashString(origin + destination + "d") % 9000);
+      let price = 45 + legKm * 0.045;
+      price *= CABIN_MULT[sel.cabin];
+      if (sel.luggage.includes("bag1")) price += 45;
+      if (sel.luggage.includes("bag2")) price += 70;
+      if (stops) price *= 0.86;
+      price = Math.round(price);
+
+      out.push({
+        airline, origin, destination,
+        date: flightDate.toISOString().slice(0, 10),
+        depMinutes: depHour * 60 + depMin,
+        durationMin, stops, cabin: sel.cabin, luggage: sel.luggage, price,
+      });
+    }
+    // Cheapest first.
+    return out.sort((a, b) => a.price - b.price);
+  }
+
+  function minutesToHHMM(mins) {
+    const m = ((mins % 1440) + 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+  }
+  function fmtDuration(mins) {
+    return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`;
+  }
+  function airportLabel(code) {
+    const a = AIRPORTS.find((x) => x.code === code);
+    return a ? `${a.code} (${a.city})` : code;
+  }
+
+  function renderFlights(flights, sel) {
+    // Summary that represents the selections.
+    const airlinesText = sel.airmode === "any" ? "Any airline"
+      : sel.airmode === "alliance" ? `${sel.alliance} (alliance)`
+      : sel.airlineCodes.map((c) => (AIRLINES.find((a) => a.code === c) || { name: c }).name).join(", ");
+    const luggageText = sel.luggage.length ? sel.luggage.map((l) => LUGGAGE_LABEL[l]).join("  ") : "None selected";
+    const dateText = sel.dateMode === "range" ? `${sel.date1} → ${sel.date2}` : sel.date1;
+    const hourText = sel.hour === "any" ? "Anytime" : sel.hour;
+
+    const summary = `
+      <div class="search-summary">
+        <h2>✈️ Your flight search</h2>
+        <div class="summary-grid">
+          <div class="summary-item"><div class="k">Origin${sel.origins.length > 1 ? "s" : ""}</div><div class="v">${sel.origins.map(escapeHtml).join(", ")}</div></div>
+          <div class="summary-item"><div class="k">Destination${sel.destinations.length > 1 ? "s" : ""}</div><div class="v">${sel.destinations.map(escapeHtml).join(", ")}</div></div>
+          <div class="summary-item"><div class="k">${sel.dateMode === "range" ? "Date range" : "Date"}</div><div class="v">${escapeHtml(dateText)}</div></div>
+          <div class="summary-item"><div class="k">Departure</div><div class="v">${escapeHtml(hourText)}</div></div>
+          <div class="summary-item"><div class="k">Class</div><div class="v">${escapeHtml(sel.cabin)}</div></div>
+          <div class="summary-item"><div class="k">Airlines</div><div class="v">${escapeHtml(airlinesText)}</div></div>
+          <div class="summary-item"><div class="k">Luggage</div><div class="v">${escapeHtml(luggageText)}</div></div>
+        </div>
+      </div>`;
+
+    if (!flights.length) {
+      results.innerHTML = summary + `<div class="empty">No airlines match that selection. Try a different airline or alliance.</div>`;
+      return;
+    }
+
+    let html = summary + `
+      <div class="results-head">
+        <h2>${flights.length} flight options</h2>
+        <span class="sub">Sorted by price · these reflect your selections above</span>
+      </div>`;
+
+    flights.forEach((f) => {
+      const arrMin = f.depMinutes + f.durationMin;
+      const plusDays = Math.floor(arrMin / 1440);
+      const tags = [];
+      tags.push(`<span class="tag cabin">${escapeHtml(f.cabin)}</span>`);
+      tags.push(`<span class="tag">${f.stops === 0 ? "Non-stop" : f.stops + " stop"}</span>`);
+      tags.push(`<span class="tag">📅 ${escapeHtml(f.date)}</span>`);
+      f.luggage.forEach((l) => tags.push(`<span class="tag">${LUGGAGE_LABEL[l]}</span>`));
+
+      html += `
+        <article class="flight-result">
+          <div class="airline-badge">${escapeHtml(f.airline.code)}</div>
+          <div class="flight-body">
+            <div class="flight-route">${escapeHtml(f.origin)}<span class="arrow">→</span>${escapeHtml(f.destination)}</div>
+            <div class="flight-times">
+              <b>${minutesToHHMM(f.depMinutes)}</b> – <b>${minutesToHHMM(arrMin)}${plusDays ? `<sup>+${plusDays}</sup>` : ""}</b>
+              · ${fmtDuration(f.durationMin)} · ${escapeHtml(f.airline.name)}${f.airline.alliance ? ` · ${escapeHtml(f.airline.alliance)}` : ""}
+            </div>
+            <div class="flight-tags">${tags.join("")}</div>
+          </div>
+          <div class="flight-cost">
+            <div class="amt">$${f.price.toLocaleString()}</div>
+            <div class="per">${escapeHtml(airportLabel(f.origin))} → ${escapeHtml(airportLabel(f.destination))}</div>
+          </div>
+        </article>`;
+    });
+
+    results.innerHTML = html;
+  }
 
   /* ---------------------------------------------------------------- */
   /* Helpers                                                          */
@@ -756,13 +1021,15 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  /* Sensible default dates: tomorrow + 3 nights. */
+  /* Sensible default dates. */
   (function setDefaultDates() {
     const fmt = (d) => d.toISOString().slice(0, 10);
     const t = new Date(); t.setDate(t.getDate() + 1);
     const out = new Date(t); out.setDate(out.getDate() + 3);
+    const week = new Date(t); week.setDate(week.getDate() + 7);
     document.getElementById("hotel-checkin").value = fmt(t);
     document.getElementById("hotel-checkout").value = fmt(out);
-    document.getElementById("flight-depart").value = fmt(t);
+    document.getElementById("flight-date1").value = fmt(t);
+    document.getElementById("flight-date2").value = fmt(week);
   })();
 })();

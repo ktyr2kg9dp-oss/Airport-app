@@ -98,28 +98,95 @@
 
     <!-- ================= FLIGHT SEARCH ================= -->
     <form id="flight-form" class="search-card" autocomplete="off" hidden>
-      <div class="field-row">
-        <div class="field autocomplete" data-field="from">
-          <label for="flight-from">From (city)</label>
-          <input type="text" id="flight-from" placeholder="e.g. New York" aria-autocomplete="list" aria-expanded="false" />
-          <ul class="suggestions" role="listbox" hidden></ul>
-        </div>
-        <div class="field autocomplete" data-field="to">
-          <label for="flight-to">To (city)</label>
-          <input type="text" id="flight-to" placeholder="e.g. London" aria-autocomplete="list" aria-expanded="false" />
+      <!-- Origin airports -->
+      <div class="chipselect" data-kind="origin" data-max="5">
+        <label>Origin <span class="hint">— up to 5 airports</span></label>
+        <div class="chips" data-chips></div>
+        <div class="autocomplete">
+          <input type="text" data-cinput placeholder="Add an airport — e.g. JFK, London" aria-autocomplete="list" aria-expanded="false" />
           <ul class="suggestions" role="listbox" hidden></ul>
         </div>
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="flight-depart">Depart</label>
-          <input type="date" id="flight-depart" />
-        </div>
-        <div class="field">
-          <label for="flight-return">Return</label>
-          <input type="date" id="flight-return" />
+
+      <!-- Destination airports -->
+      <div class="chipselect" data-kind="destination" data-max="5">
+        <label>Destination <span class="hint">— up to 5 airports</span></label>
+        <div class="chips" data-chips></div>
+        <div class="autocomplete">
+          <input type="text" data-cinput placeholder="Add an airport — e.g. CDG, Tokyo" aria-autocomplete="list" aria-expanded="false" />
+          <ul class="suggestions" role="listbox" hidden></ul>
         </div>
       </div>
+
+      <!-- Flight date -->
+      <fieldset class="criteria">
+        <legend>Flight date</legend>
+        <div class="criteria-options">
+          <label class="chip"><input type="radio" name="datemode" value="single" checked /> <span>Single date</span></label>
+          <label class="chip"><input type="radio" name="datemode" value="range" /> <span>Between two dates</span></label>
+        </div>
+        <div class="field-row" style="margin-top: 12px;">
+          <div class="field">
+            <label for="flight-date1" id="flight-date1-label">Date</label>
+            <input type="date" id="flight-date1" />
+          </div>
+          <div class="field" id="flight-date2-wrap" hidden>
+            <label for="flight-date2">To date</label>
+            <input type="date" id="flight-date2" />
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Hour of departure + Class -->
+      <div class="field-row">
+        <div class="field field-narrow">
+          <label for="flight-hour">Hour of departure</label>
+          <select id="flight-hour"></select>
+        </div>
+        <div class="field">
+          <label>Class</label>
+          <div class="criteria-options">
+            <label class="chip"><input type="radio" name="cabin" value="Economy" checked /> <span>Economy</span></label>
+            <label class="chip"><input type="radio" name="cabin" value="Premium" /> <span>Premium</span></label>
+            <label class="chip"><input type="radio" name="cabin" value="Business" /> <span>Business</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Airlines -->
+      <fieldset class="criteria">
+        <legend>Airlines</legend>
+        <div class="criteria-options">
+          <label class="chip"><input type="radio" name="airmode" value="any" checked /> <span>Any airline</span></label>
+          <label class="chip"><input type="radio" name="airmode" value="specific" /> <span>Specific airlines (up to 5)</span></label>
+          <label class="chip"><input type="radio" name="airmode" value="alliance" /> <span>Alliance group</span></label>
+        </div>
+        <div class="chipselect" data-kind="airline" data-max="5" id="airline-specific" hidden style="margin-top: 12px;">
+          <div class="chips" data-chips></div>
+          <div class="autocomplete">
+            <input type="text" data-cinput placeholder="Add an airline — e.g. Lufthansa" aria-autocomplete="list" aria-expanded="false" />
+            <ul class="suggestions" role="listbox" hidden></ul>
+          </div>
+        </div>
+        <div id="airline-alliance" hidden style="margin-top: 12px;">
+          <div class="criteria-options">
+            <label class="chip"><input type="radio" name="alliance" value="Star Alliance" /> <span>✦ Star Alliance</span></label>
+            <label class="chip"><input type="radio" name="alliance" value="SkyTeam" /> <span>✦ SkyTeam</span></label>
+            <label class="chip"><input type="radio" name="alliance" value="Oneworld" /> <span>✦ Oneworld</span></label>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Luggage -->
+      <fieldset class="criteria">
+        <legend>Luggage <span class="hint">(any combination)</span></legend>
+        <div class="criteria-options">
+          <label class="chip"><input type="checkbox" name="luggage" value="hand" /> <span>🎒 Hand luggage</span></label>
+          <label class="chip"><input type="checkbox" name="luggage" value="bag1" /> <span>🧳 1 × 23 kg checked</span></label>
+          <label class="chip"><input type="checkbox" name="luggage" value="bag2" /> <span>🧳🧳 2nd × 23 kg checked</span></label>
+        </div>
+      </fieldset>
+
       <button type="submit" class="search-btn">Search flights</button>
     </form>
 

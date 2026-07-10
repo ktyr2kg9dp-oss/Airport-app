@@ -111,8 +111,28 @@ It requires an internet connection to load the map tiles; when unavailable
 (e.g. the offline artifact preview) the app shows a short fallback message
 instead of the map.
 
-### Flight search (companion)
-Flight mode estimates distance, flight time and a price between two cities.
+### Flight search
+Flight mode offers a full search form whose results represent every selection:
+
+| Control | What it does |
+|---|---|
+| **Origin** | Add **up to 5** origin airports (autocomplete by code/city, or type any IATA code). |
+| **Destination** | Add **up to 5** destination airports. |
+| **Flight date** | Choose a **single date** or a **range between two dates**. |
+| **Hour of departure** | Pick any hour, or **Anytime**. |
+| **Airlines** | **Any airline**, **specific airlines** (up to 5), or a whole **alliance** (Star Alliance / SkyTeam / Oneworld). |
+| **Luggage** | **Hand luggage**, **1×23 kg** checked, and a **2nd 23 kg** — in any combination. |
+| **Class** | Economy / Premium / Business. |
+
+Results show a **summary of your selections** followed by matching flight
+options (airline honours the alliance/specific choice, departure honours the
+chosen hour, dates fall inside the range, and price reflects class + luggage),
+sorted by price.
+
+> These flight options are generated to represent your selections. To wire in
+> live flight prices, connect the SerpApi **Google Flights** engine on the
+> backend (the selections already map to its `departure_id` / `arrival_id`,
+> `include_airlines` incl. alliances, `travel_class`, and time-window params).
 
 ## Running it
 
