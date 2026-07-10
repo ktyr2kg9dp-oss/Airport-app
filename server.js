@@ -43,6 +43,9 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/place") {
     return handlePlace(url, res);
   }
+  if (url.pathname === "/api/flights") {
+    return handleFlights(url, res);
+  }
   return serveStatic(url, res);
 });
 
@@ -145,6 +148,122 @@ async function handlePlace(url, res) {
     return json(res, 200, value);
   } catch (err) {
     return json(res, 200, { ok: false, reason: err.message });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Live flights (Google Flights via SerpApi)                          */
+/* ------------------------------------------------------------------ */
+
+const ALLIANCE_PARAM = { "Star Alliance": "STAR_ALLIANCE", "SkyTeam": "SKYTEAM", "Oneworld": "ONEWORLD" };
+
+function timeToMinutes(t) {
+  const m = /(\d{1,2}):(\d{2})/.exec(t || "");
+  return m ? (+m[1]) * 60 + (+m[2]) : 0;
+}
+
+/* Up to `max` evenly-spaced dates between start and end (inclusive). */
+function sampleDates(start, end, max) {
+  const s = new Date(start), e = new Date(end);
+  const days = Math.round((e - s) / 86400000);
+  if (days <= 0) return [start];
+  const n = Math.min(max, days + 1);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(s);
+    d.setDate(d.getDate() + Math.round((i * days) / (n - 1)));
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return [...new Set(out)];
+}
+
+/* Turn a Google Flights itinerary into the app's flight shape. */
+function normalizeFlight(item, cabin) {
+  const legs = item.flights || [];
+  if (!legs.length) return null;
+  const first = legs[0], last = legs[legs.length - 1];
+  const dep = first.departure_airport || {}, arr = last.arrival_airport || {};
+  const code = String(first.flight_number || "").trim().split(/\s+/)[0]
+    .replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
+  return {
+    airline: {
+      code: code || "",
+      name: first.airline || code || "Airline",
+      logo: first.airline_logo || item.airline_logo || null,
+    },
+    origin: dep.id || "",
+    destination: arr.id || "",
+    date: String(dep.time || "").slice(0, 10),
+    depMinutes: timeToMinutes(dep.time),
+    durationMin: item.total_duration || legs.reduce((s, l) => s + (l.duration || 0), 0),
+    stops: Math.max(0, legs.length - 1),
+    cabin,
+    price: Math.round(item.price || 0),
+  };
+}
+
+async function handleFlights(url, res) {
+  if (!SERPAPI_KEY) {
+    return json(res, 200, { live: false, reason: "no-key", flights: [] });
+  }
+  const q = url.searchParams;
+  const origins = (q.get("origins") || "").split(",").filter(Boolean);
+  const destinations = (q.get("destinations") || "").split(",").filter(Boolean);
+  const date1 = q.get("date1");
+  if (!origins.length || !destinations.length) return json(res, 400, { live: false, reason: "Missing airports.", flights: [] });
+  if (!date1) return json(res, 400, { live: false, reason: "Missing date.", flights: [] });
+
+  const cabin = q.get("cabin") || "Economy";
+  const travelClass = cabin === "Business" ? "3" : cabin === "Premium" ? "2" : "1";
+  const airmode = q.get("airmode") || "any";
+  const hour = q.get("hour") || "any";
+  const luggage = (q.get("luggage") || "").split(",").filter(Boolean);
+  const dateMode = q.get("dateMode") || "single";
+  const date2 = q.get("date2");
+
+  const base = {
+    engine: "google_flights",
+    departure_id: origins.join(","),
+    arrival_id: destinations.join(","),
+    type: "2", // one-way
+    travel_class: travelClass,
+    currency: "USD", gl: "us", hl: "en", adults: "1",
+  };
+  if (airmode === "alliance" && ALLIANCE_PARAM[q.get("alliance")]) {
+    base.include_airlines = ALLIANCE_PARAM[q.get("alliance")];
+  } else if (airmode === "specific" && q.get("airlines")) {
+    base.include_airlines = q.get("airlines");
+  }
+  if (hour !== "any") {
+    const h = parseInt(hour, 10);
+    base.outbound_times = `${h},${Math.min(23, h + 2)}`;
+  }
+  if (luggage.includes("hand")) base.bags = "1";
+
+  const dates = dateMode === "range" && date2 && date2 >= date1
+    ? sampleDates(date1, date2, 3) : [date1];
+
+  try {
+    let all = [];
+    let firstError = "";
+    for (const d of dates) {
+      const data = await (await fetch(serpUrl({ ...base, outbound_date: d }))).json();
+      if (data.error) { firstError = data.error; continue; }
+      const items = [...(data.best_flights || []), ...(data.other_flights || [])];
+      all = all.concat(items.map((it) => normalizeFlight(it, cabin)).filter(Boolean));
+    }
+    if (!all.length && firstError) {
+      return json(res, 200, { live: false, reason: `Google Flights: ${firstError}`, flights: [] });
+    }
+    all.sort((a, b) => a.price - b.price);
+    all = all.slice(0, 8);
+    return json(res, 200, {
+      live: all.length > 0,
+      reason: all.length ? "" : "No live flights found for this search.",
+      flights: all,
+    });
+  } catch (err) {
+    return json(res, 200, { live: false, reason: err.message, flights: [] });
   }
 }
 

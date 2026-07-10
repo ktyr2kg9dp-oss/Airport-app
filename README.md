@@ -136,10 +136,14 @@ opens a Google Flights search for that exact route, date, cabin and airline.
 itineraries) and the button reads "Book on United". (Airline logos load from a
 logo CDN on the live app and fall back to the airline code offline.)
 
-> These flight options are generated to represent your selections. To wire in
-> live flight prices, connect the SerpApi **Google Flights** engine on the
-> backend (the selections already map to its `departure_id` / `arrival_id`,
-> `include_airlines` incl. alliances, `travel_class`, and time-window params).
+**Live flights:** with the backend server + SerpApi key running, flight
+searches call the **Google Flights** engine and return **real, current flights
+and prices** (badged "● Live flights"), including real airline logos. Your
+selections map onto Google Flights: multiple origins/destinations →
+`departure_id`/`arrival_id`, alliance/airlines → `include_airlines`, class →
+`travel_class`, departure hour → `outbound_times`, and a date range is sampled
+across up to 3 dates. Without the server/key it falls back to representative
+**sample flights** and says so.
 
 ## Running it
 

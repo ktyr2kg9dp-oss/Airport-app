@@ -819,7 +819,7 @@
     runFlightSearch();
   });
 
-  function runFlightSearch() {
+  async function runFlightSearch() {
     const origins = originSelect.getItems().map((x) => x.value);
     const destinations = destSelect.getItems().map((x) => x.value);
     if (!origins.length) return showEmpty("Add at least one origin airport.");
@@ -848,8 +848,52 @@
     }
 
     const sel = { origins, destinations, dateMode, date1, date2, hour, cabin, airmode, airlineCodes, alliance, luggage };
-    const flights = generateFlights(sel);
-    renderFlights(flights, sel);
+
+    // 1) Try LIVE flights (real Google Flights prices). 2) Fall back to
+    // representative sample flights if the server/key isn't available.
+    showEmpty("Searching live flights… this can take a few seconds.");
+    const live = await fetchLiveFlights(sel);
+
+    let flights, flightsLive = false, note;
+    if (live && live.flights.length) {
+      flights = live.flights.map((f) => enrichLiveFlight(f, sel));
+      flightsLive = true;
+    } else {
+      flights = generateFlights(sel);
+      note = (live && live.reason && live.reason !== "no-key" ? live.reason + " " : "") +
+        "Showing sample flights — run the app with the backend server and a SerpApi key for live flight prices.";
+    }
+    renderFlights(flights, sel, { live: flightsLive, note });
+  }
+
+  /* Ask the backend for live Google Flights results. Returns null if the
+   * backend is unreachable (e.g. opened as a static file). */
+  async function fetchLiveFlights(sel) {
+    try {
+      const params = new URLSearchParams({
+        origins: sel.origins.join(","), destinations: sel.destinations.join(","),
+        dateMode: sel.dateMode, date1: sel.date1, date2: sel.date2 || "",
+        cabin: sel.cabin, airmode: sel.airmode, alliance: sel.alliance || "",
+        airlines: sel.airlineCodes.join(","), hour: sel.hour, luggage: sel.luggage.join(","),
+      });
+      const res = await fetch(`/api/flights?${params.toString()}`, { headers: { Accept: "application/json" } });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /* Fill in alliance (from the bundled airline list), the user's luggage
+   * selection, and award pricing on a live flight. */
+  function enrichLiveFlight(f, sel) {
+    const known = AIRLINES.find((a) => a.code === f.airline.code);
+    return {
+      ...f,
+      airline: { ...f.airline, alliance: f.airline.alliance || (known ? known.alliance : null) },
+      luggage: sel.luggage,
+      award: computeAward(f.price),
+    };
   }
 
   /* Airlines that match the current selection. */
@@ -954,7 +998,8 @@
     return "https://www.google.com/travel/flights?q=" + encodeURIComponent(q);
   }
 
-  function renderFlights(flights, sel) {
+  function renderFlights(flights, sel, opts) {
+    opts = opts || {};
     // Summary that represents the selections.
     const airlinesText = sel.airmode === "any" ? "Any airline"
       : sel.airmode === "alliance" ? `${sel.alliance} (alliance)`
@@ -982,11 +1027,19 @@
       return;
     }
 
+    const flightBadge = opts.live
+      ? `<span class="live-badge live-on">● Live flights</span>`
+      : `<span class="live-badge live-off">Sample flights</span>`;
+
     let html = summary + `
       <div class="results-head">
-        <h2>${flights.length} flight options</h2>
+        <h2>${flights.length} flight options ${flightBadge}</h2>
         <span class="sub">Sorted by price · these reflect your selections above</span>
       </div>`;
+
+    if (!opts.live && opts.note) {
+      html += `<div class="notice">${escapeHtml(opts.note)}</div>`;
+    }
 
     if (isStarAllianceSearch(sel)) {
       html += `<div class="notice notice-info">✦ Star Alliance selected — bookings open on <b>united.com</b> (United Airlines), which can ticket Star Alliance itineraries.</div>`;
@@ -1007,7 +1060,7 @@
         <article class="flight-result">
           <div class="airline-badge" title="${escapeHtml(f.airline.name)}">
             <span class="airline-code">${escapeHtml(f.airline.code)}</span>
-            <img src="https://pics.avs.io/120/120/${encodeURIComponent(f.airline.code)}.png" alt="${escapeHtml(f.airline.name)} logo" loading="lazy" onerror="this.remove()" />
+            <img src="${escapeHtml(f.airline.logo || `https://pics.avs.io/120/120/${encodeURIComponent(f.airline.code)}.png`)}" alt="${escapeHtml(f.airline.name)} logo" loading="lazy" onerror="this.remove()" />
           </div>
           <div class="flight-body">
             <div class="flight-airline"><b>${escapeHtml(f.airline.name)}</b>${f.airline.alliance ? ` <span class="al">· ${escapeHtml(f.airline.alliance)}</span>` : ""}</div>
