@@ -1,14 +1,19 @@
 /*
- * Oflights bundled dataset
+ * Otable bundled dataset
  * ------------------------------------------------------------------
- * This file provides the city + point-of-interest data and generates a
- * catalogue of hotels for each city. It is intentionally self-contained so
- * the app runs with zero setup / no API keys.
+ * Self-contained data + availability engine for the Otable app. It provides:
+ *   - a list of world cities (for the "search by city" box + the map),
+ *   - a deterministic generator that places restaurants around any point
+ *     (a city centre OR a point the user clicked on the map),
+ *   - a table-availability engine that answers "does this restaurant have a
+ *     free table for N people at time T on date D?".
  *
- * To use the LIVE Google data instead (all cities & POIs found in Google),
- * see README.md -> "Connecting the Google Places API". The rest of the app
- * only depends on the shape of the objects returned here, so it is a drop-in
- * replacement.
+ * Everything is generated deterministically from a seed so results are stable
+ * between reloads for the same area/date. No API keys, no build step.
+ *
+ * To use LIVE restaurant data instead (e.g. Google Places / a reservation
+ * provider) replace `getRestaurants` + `seatingAt` with real calls; the rest of
+ * the app only depends on the shape of the objects returned here.
  */
 
 /* Major world cities (name, country, latitude, longitude). */
@@ -69,99 +74,8 @@ const CITIES = [
   { name: "Jerusalem",    country: "Israel",         lat: 31.7683, lng: 35.2137 },
 ];
 
-/*
- * Points of interest per city: geographic sights, museums, landmarks, etc.
- * type is one of: landmark, museum, park, geographic, religious, entertainment.
- */
-const POIS = {
-  Paris: [
-    { name: "Eiffel Tower",           type: "landmark",   lat: 48.8584, lng: 2.2945 },
-    { name: "Louvre Museum",          type: "museum",     lat: 48.8606, lng: 2.3376 },
-    { name: "Notre-Dame Cathedral",   type: "religious",  lat: 48.8530, lng: 2.3499 },
-    { name: "Arc de Triomphe",        type: "landmark",   lat: 48.8738, lng: 2.2950 },
-    { name: "Montmartre",             type: "geographic", lat: 48.8867, lng: 2.3431 },
-  ],
-  London: [
-    { name: "Big Ben",                type: "landmark",   lat: 51.5007, lng: -0.1246 },
-    { name: "British Museum",         type: "museum",     lat: 51.5194, lng: -0.1270 },
-    { name: "Tower of London",        type: "landmark",   lat: 51.5081, lng: -0.0759 },
-    { name: "Hyde Park",              type: "park",       lat: 51.5073, lng: -0.1657 },
-    { name: "London Eye",            type: "entertainment", lat: 51.5033, lng: -0.1195 },
-  ],
-  "New York": [
-    { name: "Statue of Liberty",      type: "landmark",   lat: 40.6892, lng: -74.0445 },
-    { name: "Central Park",           type: "park",       lat: 40.7829, lng: -73.9654 },
-    { name: "Times Square",           type: "landmark",   lat: 40.7580, lng: -73.9855 },
-    { name: "Metropolitan Museum",    type: "museum",     lat: 40.7794, lng: -73.9632 },
-    { name: "Empire State Building",  type: "landmark",   lat: 40.7484, lng: -73.9857 },
-  ],
-  Tokyo: [
-    { name: "Senso-ji Temple",        type: "religious",  lat: 35.7148, lng: 139.7967 },
-    { name: "Tokyo Tower",            type: "landmark",   lat: 35.6586, lng: 139.7454 },
-    { name: "Shibuya Crossing",       type: "landmark",   lat: 35.6595, lng: 139.7005 },
-    { name: "Meiji Shrine",           type: "religious",  lat: 35.6764, lng: 139.6993 },
-    { name: "Ueno Park",              type: "park",       lat: 35.7156, lng: 139.7745 },
-  ],
-  Rome: [
-    { name: "Colosseum",              type: "landmark",   lat: 41.8902, lng: 12.4922 },
-    { name: "Vatican Museums",        type: "museum",     lat: 41.9065, lng: 12.4536 },
-    { name: "Trevi Fountain",         type: "landmark",   lat: 41.9009, lng: 12.4833 },
-    { name: "Pantheon",               type: "landmark",   lat: 41.8986, lng: 12.4769 },
-    { name: "Roman Forum",            type: "geographic", lat: 41.8925, lng: 12.4853 },
-  ],
-  Barcelona: [
-    { name: "Sagrada Familia",        type: "religious",  lat: 41.4036, lng: 2.1744 },
-    { name: "Park Güell",             type: "park",       lat: 41.4145, lng: 2.1527 },
-    { name: "La Rambla",              type: "geographic", lat: 41.3797, lng: 2.1746 },
-    { name: "Casa Batlló",            type: "landmark",   lat: 41.3916, lng: 2.1650 },
-    { name: "Gothic Quarter",         type: "geographic", lat: 41.3833, lng: 2.1777 },
-  ],
-  Amsterdam: [
-    { name: "Rijksmuseum",            type: "museum",     lat: 52.3600, lng: 4.8852 },
-    { name: "Anne Frank House",       type: "museum",     lat: 52.3752, lng: 4.8840 },
-    { name: "Van Gogh Museum",        type: "museum",     lat: 52.3584, lng: 4.8811 },
-    { name: "Vondelpark",             type: "park",       lat: 52.3579, lng: 4.8686 },
-    { name: "Dam Square",             type: "geographic", lat: 52.3731, lng: 4.8926 },
-  ],
-  Dubai: [
-    { name: "Burj Khalifa",           type: "landmark",   lat: 25.1972, lng: 55.2744 },
-    { name: "Dubai Mall",           type: "entertainment", lat: 25.1985, lng: 55.2796 },
-    { name: "Palm Jumeirah",          type: "geographic", lat: 25.1122, lng: 55.1390 },
-    { name: "Dubai Marina",           type: "geographic", lat: 25.0805, lng: 55.1403 },
-    { name: "Burj Al Arab",           type: "landmark",   lat: 25.1412, lng: 55.1853 },
-  ],
-  Singapore: [
-    { name: "Marina Bay Sands",       type: "landmark",   lat: 1.2834,  lng: 103.8607 },
-    { name: "Gardens by the Bay",     type: "park",       lat: 1.2816,  lng: 103.8636 },
-    { name: "Sentosa Island",       type: "entertainment", lat: 1.2494, lng: 103.8303 },
-    { name: "Merlion Park",           type: "landmark",   lat: 1.2868,  lng: 103.8545 },
-    { name: "Chinatown",              type: "geographic", lat: 1.2833,  lng: 103.8433 },
-  ],
-  Sydney: [
-    { name: "Sydney Opera House",     type: "landmark",   lat: -33.8568, lng: 151.2153 },
-    { name: "Harbour Bridge",         type: "landmark",   lat: -33.8523, lng: 151.2108 },
-    { name: "Bondi Beach",            type: "geographic", lat: -33.8908, lng: 151.2743 },
-    { name: "Darling Harbour",      type: "entertainment", lat: -33.8748, lng: 151.1987 },
-    { name: "Royal Botanic Garden",   type: "park",       lat: -33.8641, lng: 151.2165 },
-  ],
-  Istanbul: [
-    { name: "Hagia Sophia",           type: "religious",  lat: 41.0086, lng: 28.9802 },
-    { name: "Blue Mosque",            type: "religious",  lat: 41.0054, lng: 28.9768 },
-    { name: "Topkapi Palace",         type: "museum",     lat: 41.0115, lng: 28.9834 },
-    { name: "Grand Bazaar",           type: "geographic", lat: 41.0106, lng: 28.9680 },
-    { name: "Galata Tower",           type: "landmark",   lat: 41.0256, lng: 28.9744 },
-  ],
-  "San Francisco": [
-    { name: "Golden Gate Bridge",     type: "landmark",   lat: 37.8199, lng: -122.4783 },
-    { name: "Alcatraz Island",        type: "landmark",   lat: 37.8267, lng: -122.4230 },
-    { name: "Fisherman's Wharf",    type: "entertainment", lat: 37.8080, lng: -122.4177 },
-    { name: "Golden Gate Park",       type: "park",       lat: 37.7694, lng: -122.4862 },
-    { name: "Ferry Building",         type: "landmark",   lat: 37.7955, lng: -122.3937 },
-  ],
-};
-
-/* Small, deterministic pseudo-random generator (mulberry32) so the hotel
- * catalogue is stable between reloads for the same city. */
+/* Small, deterministic pseudo-random generator (mulberry32) so a given area
+ * always produces the same restaurants + availability between reloads. */
 function seededRandom(seed) {
   let a = seed >>> 0;
   return function () {
@@ -181,48 +95,7 @@ function hashString(str) {
   return h >>> 0;
 }
 
-const HOTEL_BRANDS = [
-  "Grand", "Royal", "Central", "Park", "Riverside", "Plaza", "Boutique",
-  "Skyline", "Garden", "Metropolitan", "Comfort", "Heritage", "Luxe", "Urban",
-];
-const HOTEL_TYPES = ["Hotel", "Suites", "Inn", "Residence", "Palace", "Lodge"];
-
-/*
- * Build a catalogue of hotels for a city. Each hotel gets a stable coordinate
- * near the city centre, a nightly price, a review score and a review count.
- */
-function getHotelsForCity(cityName) {
-  if (!cityName) return [];
-  const city = CITIES.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
-  if (!city) return [];
-
-  const rng = seededRandom(hashString(city.name));
-  const count = 14; // generate a pool; the app returns the top 5
-  const hotels = [];
-
-  for (let i = 0; i < count; i++) {
-    // Spread hotels within roughly a 5 km box around the city centre.
-    const dLat = (rng() - 0.5) * 0.09;
-    const dLng = (rng() - 0.5) * 0.09;
-    const brand = HOTEL_BRANDS[Math.floor(rng() * HOTEL_BRANDS.length)];
-    const type = HOTEL_TYPES[Math.floor(rng() * HOTEL_TYPES.length)];
-
-    hotels.push({
-      id: `${city.name}-${i}`,
-      name: `${brand} ${city.name} ${type}`,
-      lat: city.lat + dLat,
-      lng: city.lng + dLng,
-      pricePerNight: Math.round(70 + rng() * 480),        // 70 – 550
-      reviewScore: Math.round((6.5 + rng() * 3.4) * 10) / 10, // 6.5 – 9.9
-      reviewCount: Math.round(80 + rng() * 4200),
-      cleanliness: Math.round(78 + rng() * 21),           // 78 – 99 % positive
-      service: Math.round(75 + rng() * 24),               // 75 – 99 % positive
-    });
-  }
-  return hotels;
-}
-
-/* Haversine distance in kilometres between two lat/lng points. */
+/* Haversine distance in kilometres between two {lat,lng} points. */
 function distanceKm(a, b) {
   const R = 6371;
   const toRad = (d) => (d * Math.PI) / 180;
@@ -235,5 +108,172 @@ function distanceKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+/* ------------------------------------------------------------------ */
+/* Restaurant catalogue generation                                    */
+/* ------------------------------------------------------------------ */
+
+const CUISINES = [
+  { name: "Italian",       emoji: "🍝" },
+  { name: "Japanese",      emoji: "🍣" },
+  { name: "French",        emoji: "🥐" },
+  { name: "Indian",        emoji: "🍛" },
+  { name: "Mexican",       emoji: "🌮" },
+  { name: "Thai",          emoji: "🍜" },
+  { name: "Steakhouse",    emoji: "🥩" },
+  { name: "Mediterranean", emoji: "🫒" },
+  { name: "Seafood",       emoji: "🦞" },
+  { name: "American",      emoji: "🍔" },
+  { name: "Chinese",       emoji: "🥡" },
+  { name: "Spanish",       emoji: "🥘" },
+  { name: "Korean",        emoji: "🍲" },
+  { name: "Vietnamese",    emoji: "🍜" },
+  { name: "Greek",         emoji: "🥙" },
+];
+
+const NAME_ADJ = [
+  "The Golden", "Little", "Old", "Blue", "Rustic", "Urban", "Copper", "Green",
+  "Royal", "Corner", "Riverside", "Garden", "Silver", "The Hungry", "Maison",
+  "Bella", "Casa", "The Velvet", "Nonna's", "The Salt",
+];
+const NAME_NOUN = [
+  "Fork", "Table", "Kitchen", "Bistro", "House", "Spoon", "Plate", "Grill",
+  "Cellar", "Terrace", "Olive", "Lantern", "Room", "Feast", "Pantry", "Larder",
+];
+
+/* Overall dinner window the UI offers (minutes since midnight). */
+const DINNER_START_MIN = 17 * 60;   // 17:00
+const DINNER_END_MIN = 22 * 60 + 30; // 22:30
+const SLOT_STEP = 30;                // reservations are on a 30-minute grid
+const DINING_MINUTES = 90;           // a table is held ~90 minutes
+
+/* Restaurants are placed within this radius of the chosen point and then
+ * filtered to the user's search radius, so widening the search reveals more of
+ * the same restaurants rather than reshuffling them. */
+const MAX_SPREAD_KM = 7;
+const POOL_SIZE = 70;
+
+/* Build the mix of tables for one restaurant (by number of seats). */
+function makeTables(rng) {
+  const tables = [];
+  tables.push({ seats: 2, count: 3 + Math.floor(rng() * 6) }); // 3–8 two-tops
+  tables.push({ seats: 4, count: 3 + Math.floor(rng() * 5) }); // 3–7 four-tops
+  if (rng() < 0.85) tables.push({ seats: 6, count: 1 + Math.floor(rng() * 3) });
+  if (rng() < 0.55) tables.push({ seats: 8, count: 1 + Math.floor(rng() * 2) });
+  if (rng() < 0.25) tables.push({ seats: 10, count: 1 });
+  if (rng() < 0.12) tables.push({ seats: 12, count: 1 });
+  return tables;
+}
+
+const OPEN_CHOICES = [17 * 60, 17 * 60 + 30, 18 * 60];        // 17:00 / 17:30 / 18:00
+const CLOSE_CHOICES = [21 * 60 + 30, 22 * 60, 22 * 60 + 30, 23 * 60]; // 21:30–23:00
+
+/*
+ * Generate the restaurants around `center` (a {lat,lng}) and return those
+ * within `radiusKm`. `seedKey` makes the catalogue stable for that area.
+ * Each restaurant gets a `distance` (km from center) attached.
+ */
+function getRestaurants(center, seedKey, radiusKm) {
+  const rng = seededRandom(hashString(seedKey));
+  const cosLat = Math.cos((center.lat * Math.PI) / 180) || 1;
+
+  const pool = [];
+  for (let i = 0; i < POOL_SIZE; i++) {
+    // Place restaurants radially, concentrated toward the centre (downtowns are
+    // denser than the outskirts) so even a small search radius returns options.
+    const angle = rng() * 2 * Math.PI;
+    const distanceFromCentre = MAX_SPREAD_KM * Math.pow(rng(), 1.5);
+    const lat = center.lat + (distanceFromCentre * Math.cos(angle)) / 111.32;
+    const lng = center.lng + (distanceFromCentre * Math.sin(angle)) / (111.32 * cosLat);
+    const cuisine = CUISINES[Math.floor(rng() * CUISINES.length)];
+    const name = `${NAME_ADJ[Math.floor(rng() * NAME_ADJ.length)]} ${NAME_NOUN[Math.floor(rng() * NAME_NOUN.length)]}`;
+    const priceLevel = 1 + Math.floor(rng() * 4);            // 1–4 ($ … $$$$)
+    const rating = Math.round((3.5 + rng() * 1.4) * 10) / 10; // 3.5–4.9
+    const reviewCount = Math.round(40 + rng() * 1500);
+    const tables = makeTables(rng);
+    const openMin = OPEN_CHOICES[Math.floor(rng() * OPEN_CHOICES.length)];
+    const closeMin = CLOSE_CHOICES[Math.floor(rng() * CLOSE_CHOICES.length)];
+
+    pool.push({
+      id: `${seedKey}#${i}`,
+      name,
+      cuisine: cuisine.name,
+      emoji: cuisine.emoji,
+      lat, lng,
+      priceLevel,
+      rating,
+      reviewCount,
+      tables,
+      openMin,
+      closeMin,
+      lastSeatMin: closeMin - DINING_MINUTES,
+      maxSeats: Math.max(...tables.map((t) => t.seats)),
+    });
+  }
+
+  return pool
+    .map((r) => ({ ...r, distance: distanceKm(center, r) }))
+    .filter((r) => r.distance <= radiusKm);
+}
+
+/* Deterministic table occupancy for a restaurant at a given date/time/table
+ * size. Dinner peaks around 20:00, so tables are harder to get then. */
+function bookedFraction(id, dateStr, slotMin, seats) {
+  const rng = seededRandom(hashString(`${id}|${dateStr}|${slotMin}|${seats}`));
+  const base = rng();                                        // 0–1 baseline demand
+  const peak = Math.exp(-Math.pow((slotMin - 20 * 60) / 95, 2)); // bell curve at 20:00
+  return Math.min(0.98, 0.10 + base * 0.45 + peak * 0.45);
+}
+
+/*
+ * Is there a free table for `party` people at `slotMin` on `dateStr`?
+ * Returns the smallest suitable table that has a seat free
+ * ({ seats, freeCount }), or null if nothing fits / the kitchen is closed.
+ */
+function seatingAt(restaurant, dateStr, slotMin, party) {
+  if (slotMin < restaurant.openMin || slotMin > restaurant.lastSeatMin) return null;
+
+  const fits = restaurant.tables
+    .filter((t) => t.seats >= party)
+    .sort((a, b) => a.seats - b.seats); // seat the party at the smallest table that fits
+
+  for (const group of fits) {
+    const booked = Math.round(group.count * bookedFraction(restaurant.id, dateStr, slotMin, group.seats));
+    if (booked < group.count) return { seats: group.seats, freeCount: group.count - booked };
+  }
+  return null;
+}
+
+/* Find the nearest known city to an arbitrary point (for labelling map picks). */
+function nearestCity(point) {
+  let best = null, bestDist = Infinity;
+  for (const c of CITIES) {
+    const d = distanceKm(point, c);
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return { city: best, distance: bestDist };
+}
+
+/* Time helpers: "HH:MM" <-> minutes since midnight. */
+function timeToMin(str) {
+  const [h, m] = String(str).split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+function minToTime(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 /* Expose to the app. */
-window.OflightsData = { CITIES, POIS, getHotelsForCity, distanceKm };
+window.OtableData = {
+  CITIES,
+  getRestaurants,
+  seatingAt,
+  nearestCity,
+  distanceKm,
+  timeToMin,
+  minToTime,
+  DINNER_START_MIN,
+  DINNER_END_MIN,
+  SLOT_STEP,
+};
