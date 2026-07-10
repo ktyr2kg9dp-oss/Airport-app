@@ -1,6 +1,7 @@
-# Render Blueprint — deploys Otable as a free always-on web app.
-# In Render: New + → Blueprint → pick this repo → Apply. You'll get a public
-# URL you can open from any phone. No secrets required.
+# Render Blueprint — deploys O·Dine as a free always-on web app.
+# In Render: New + → Blueprint → pick this repo → Apply. Paste your
+# GOOGLE_PLACES_KEY when prompted (or leave it blank to use the curated sample).
+# (The service is named "otable" to keep your existing deploy URL unchanged.)
 services:
   - type: web
     name: otable
@@ -8,3 +9,6 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node server.js
+    envVars:
+      - key: GOOGLE_PLACES_KEY
+        sync: false   # enter this secret in the Render dashboard, not in the repo

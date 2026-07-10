@@ -3,7 +3,7 @@
   "use strict";
 
   const {
-    CITIES, getRestaurants, seatingAt, nearestCity, distanceKm,
+    CITIES, getRestaurants, seatingAt, nearestCity, inIsrael, distanceKm,
     timeToMin, minToTime, DINNER_START_MIN, DINNER_END_MIN, SLOT_STEP,
   } = window.OtableData;
 
@@ -132,7 +132,7 @@
       el.textContent = "The map needs an internet connection to load — you can still search by typing a city above.";
       return;
     }
-    const start = CITIES[0]; // Paris
+    const start = CITIES.find((c) => c.name === "Tel Aviv") || CITIES[0];
     pickerMap = L.map(el, { scrollWheelZoom: false }).setView([start.lat, start.lng], 12);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19, attribution: "&copy; OpenStreetMap contributors",
@@ -210,13 +210,18 @@
     return Math.round(min / SLOT_STEP) * SLOT_STEP;
   }
 
-  function runSearch() {
+  async function runSearch() {
     // Resolve the area: a typed city name wins (and recentres); otherwise use
     // whatever was picked on the map.
     const city = getCity(cityInput.value);
     if (city) area = { lat: city.lat, lng: city.lng, label: city.name, isCustom: false };
     if (!area) {
       return showEmpty("Choose a city, or click a point on the map, to set where you want to dine.");
+    }
+
+    // O·Dine covers Israel only.
+    if (!inIsrael(area)) {
+      return showEmpty("O·Dine currently covers Israel only. Pick an Israeli city, or a map point inside Israel.");
     }
 
     const party = Math.max(1, Math.min(20, Math.round(Number(partyInput.value) || 0)));
@@ -240,6 +245,22 @@
       timeLabel = `between ${minToTime(s)} and ${minToTime(en)}`;
     }
 
+    // 1) Try REAL restaurants from Google Places (proxied by the backend).
+    showEmpty("Finding restaurants…");
+    const live = await fetchLiveRestaurants(area, radiusKm);
+
+    if (live && live.restaurants && live.restaurants.length) {
+      let items = live.restaurants
+        .map((r) => ({ ...r, distance: distanceKm(area, r) }))
+        .filter((r) => r.distance <= radiusKm)
+        .map((r) => ({ ...r, openInfo: openDuring(r, dateStr, slots) }))
+        .filter((r) => r.openInfo.open);
+      // Best rated first, then nearest.
+      items.sort((a, b) => (b.rating || 0) - (a.rating || 0) || a.distance - b.distance);
+      return renderLiveResults(items, { area, radiusKm, party, dateStr, timeMode, timeLabel, asOf: live.asOf });
+    }
+
+    // 2) Fall back to the bundled curated sample + simulated availability.
     const seedKey = area.isCustom
       ? `pt:${area.lat.toFixed(3)},${area.lng.toFixed(3)}`
       : area.label;
@@ -249,7 +270,6 @@
       return showEmpty(`No restaurants found within ${radiusKm} km of ${escapeHtml(area.label)}. Try widening the search area.`);
     }
 
-    // Keep only restaurants with at least one free, fitting table in the window.
     const matches = [];
     nearby.forEach((r) => {
       const openSlots = [];
@@ -265,11 +285,51 @@
     renderResults(matches, {
       area, radiusKm, party, dateStr, timeMode, timeLabel,
       slotCount: slots.length, bigParty: party > 12,
+      sampleReason: (live && live.reason) ||
+        "Showing the curated sample. Set GOOGLE_PLACES_KEY on the server for real restaurants from Google.",
     });
   }
 
   function clampMin(min) {
     return Math.min(DINNER_END_MIN, Math.max(DINNER_START_MIN, min));
+  }
+
+  /* Ask the backend for real restaurants near the area. Returns null if the
+   * backend is unreachable (e.g. the app is opened as a static file). */
+  async function fetchLiveRestaurants(area, radiusKm) {
+    try {
+      const p = new URLSearchParams({
+        lat: String(area.lat), lng: String(area.lng), radius: String(Math.round(radiusKm * 1000)),
+      });
+      const res = await fetch(`/api/restaurants?${p.toString()}`, { headers: { Accept: "application/json" } });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /* Is a real restaurant open during any of the requested seatings? Restaurants
+   * with no listed hours are treated as open (flagged unknown). */
+  function openDuring(r, dateStr, slots) {
+    if (!r.periods || !r.periods.length) return { open: true, unknown: true };
+    const open = slots.some((m) => openAtMinute(r.periods, dateStr, m));
+    return { open };
+  }
+
+  function openAtMinute(periods, dateStr, slotMin) {
+    const dow = new Date(dateStr + "T00:00:00").getDay(); // 0=Sun..6=Sat (matches Google)
+    const target = dow * 1440 + slotMin;
+    const WEEK = 7 * 1440;
+    for (const p of periods) {
+      if (p.od == null) continue;
+      if (p.cd == null) return true; // open with no close → treat as 24/7
+      let o = p.od * 1440 + p.om;
+      let c = p.cd * 1440 + p.cm;
+      if (c <= o) c += WEEK; // overnight or week wrap
+      if ((target >= o && target < c) || (target + WEEK >= o && target + WEEK < c)) return true;
+    }
+    return false;
   }
 
   /* ---------------------------------------------------------------- */
@@ -287,9 +347,13 @@
     let html = `
       <div class="results-head">
         <h2>${list.length} restaurant${list.length === 1 ? "" : "s"} with a table for ${partyText}
-          <span class="live-badge live-on">● Table available</span></h2>
+          <span class="live-badge live-off">◐ Sample data</span></h2>
         <span class="sub">Near ${escapeHtml(ctx.area.label)} · within ${ctx.radiusKm} km · ${escapeHtml(datePretty(ctx.dateStr))} · ${escapeHtml(ctx.timeLabel)}</span>
       </div>`;
+
+    if (ctx.sampleReason) {
+      html += `<div class="notice">${escapeHtml(ctx.sampleReason)}</div>`;
+    }
 
     html += `<div id="results-map" class="results-map"></div>`;
 
@@ -330,6 +394,57 @@
             </div>
             <div class="rest-meta">${meta.join("")}</div>
             ${availability}
+          </div>
+        </article>`;
+    });
+
+    results.innerHTML = html;
+    initResultsMap(mapPoints, ctx);
+  }
+
+  /* Render REAL restaurants from Google Places (open at the requested time). */
+  function renderLiveResults(list, ctx) {
+    if (!list.length) {
+      return showEmpty(`No restaurants near ${escapeHtml(ctx.area.label)} are open ${escapeHtml(ctx.timeLabel)} on ${escapeHtml(datePretty(ctx.dateStr))} within ${ctx.radiusKm} km. Try a wider area or another time.`);
+    }
+
+    const partyText = `${ctx.party} ${people(ctx.party)}`;
+    let html = `
+      <div class="results-head">
+        <h2>${list.length} restaurant${list.length === 1 ? "" : "s"} open for your table
+          <span class="live-badge live-on">● Live · Google</span></h2>
+        <span class="sub">Near ${escapeHtml(ctx.area.label)} · within ${ctx.radiusKm} km · ${escapeHtml(datePretty(ctx.dateStr))} · ${escapeHtml(ctx.timeLabel)}</span>
+      </div>`;
+
+    html += `<div class="notice notice-info">Real restaurants from Google, open at your selected time. Confirm a table for ${escapeHtml(partyText)} on each restaurant's reservation page.</div>`;
+    html += `<div id="results-map" class="results-map"></div>`;
+
+    const mapPoints = [];
+    list.forEach((r, i) => {
+      mapPoints.push({ rank: i + 1, name: r.name, lat: r.lat, lng: r.lng, distance: r.distance, emoji: "🍽️" });
+
+      const meta = [];
+      if (r.rating != null) meta.push(`<span class="star">⭐ <b>${r.rating.toFixed(1)}</b> <span>(${(r.reviewCount || 0).toLocaleString()})</span></span>`);
+      if (r.priceLevel) meta.push(`<span>${"$".repeat(r.priceLevel)}</span>`);
+      meta.push(`<span>📍 <b>${r.distance.toFixed(1)} km</b> away</span>`);
+
+      const openLine = (r.openInfo && r.openInfo.unknown)
+        ? `<div class="avail-line avail-unknown">🕒 Opening hours not listed — check on the reservation page</div>`
+        : `<div class="avail-line">🟢 Open ${escapeHtml(ctx.timeLabel)}</div>`;
+      const addr = r.address ? `<div class="rest-addr">${escapeHtml(r.address)}</div>` : "";
+      const url = r.mapsUri || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name)}`;
+
+      html += `
+        <article class="rest-card">
+          <div class="rank-badge"><span class="rest-emoji">🍽️</span><span class="rank-n">${i + 1}</span></div>
+          <div class="rest-main">
+            <div class="rest-top">
+              <h3>${escapeHtml(r.name)} <span class="cuisine">${escapeHtml(r.cuisine)}</span></h3>
+              <a class="reserve-link" href="${url}" target="_blank" rel="noopener noreferrer">Reserve a table →</a>
+            </div>
+            <div class="rest-meta">${meta.join("")}</div>
+            ${addr}
+            ${openLine}
           </div>
         </article>`;
     });

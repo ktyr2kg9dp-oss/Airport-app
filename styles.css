@@ -376,6 +376,8 @@ body {
   padding: 8px 12px;
 }
 .avail-line b { color: var(--good); }
+.avail-line.avail-unknown { background: rgba(255, 181, 71, 0.12); border-color: var(--warn); }
+.rest-addr { margin-top: 6px; font-size: 13px; color: var(--muted); }
 
 .slot-chips {
   display: flex;
