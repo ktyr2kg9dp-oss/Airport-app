@@ -892,7 +892,6 @@
       ...f,
       airline: { ...f.airline, alliance: f.airline.alliance || (known ? known.alliance : null) },
       luggage: sel.luggage,
-      award: computeAward(f.price),
     };
   }
 
@@ -904,16 +903,6 @@
         AIRLINES.find((a) => a.code === code) || { code, name: code, alliance: null });
     }
     return AIRLINES;
-  }
-
-  /* Award pricing: a full-miles option and a miles + money (partial) option,
-   * derived from the cash fare at ~1.25 cents/mile and rounded to tidy amounts. */
-  function computeAward(price) {
-    const round500 = (n) => Math.round(n / 500) * 500;
-    const fullMiles = round500(price / 0.0125);
-    const partialMiles = round500(fullMiles * 0.6);
-    const copay = Math.round(price * 0.4);
-    return { fullMiles, partialMiles, copay };
   }
 
   const CABIN_MULT = { Economy: 1, Premium: 1.7, Business: 3.4 };
@@ -961,7 +950,6 @@
         date: flightDate.toISOString().slice(0, 10),
         depMinutes: depHour * 60 + depMin,
         durationMin, stops, cabin: sel.cabin, luggage: sel.luggage, price,
-        award: computeAward(price),
       });
     }
     // Cheapest first.
@@ -996,6 +984,14 @@
     }
     const q = `Flights from ${f.origin} to ${f.destination} on ${f.date} ${f.cabin} class ${f.airline.name}`;
     return "https://www.google.com/travel/flights?q=" + encodeURIComponent(q);
+  }
+
+  /* United's own award (miles) search for this route/date — where the real,
+   * account-specific MileagePlus price is shown after you sign in on United. */
+  function unitedAwardUrl(f) {
+    const sc = f.cabin === "Business" ? "4" : "7";
+    return `https://www.united.com/en/us/fsr/choose-flights?f=${encodeURIComponent(f.origin)}` +
+           `&t=${encodeURIComponent(f.destination)}&d=${f.date}&tt=1&sc=${sc}&px=1&taxng=1&idx=1&at=1`;
   }
 
   function renderFlights(flights, sel, opts) {
@@ -1042,7 +1038,7 @@
     }
 
     if (isStarAllianceSearch(sel)) {
-      html += `<div class="notice notice-info">✦ Star Alliance selected — bookings open on <b>united.com</b> (United Airlines), which can ticket Star Alliance itineraries.</div>`;
+      html += `<div class="notice notice-info">✦ Star Alliance selected — prices below are <b>real cash fares</b>. For real miles/award prices, tap <b>“See miles on United”</b> on any flight to open United's award search (your actual MileagePlus price shows after you sign in on United).</div>`;
     }
 
     flights.forEach((f) => {
@@ -1056,6 +1052,9 @@
 
       const book = bookingUrl(f, sel);
       const bookLabel = (isStarAllianceSearch(sel) || f.airline.code === "UA") ? "Book on United →" : "Book →";
+      // United can price Star Alliance itineraries in miles — offer a one-tap
+      // jump to United's real award search (no estimates, no stored login).
+      const starFlight = isStarAllianceSearch(sel) || f.airline.alliance === "Star Alliance";
       html += `
         <article class="flight-result">
           <div class="airline-badge" title="${escapeHtml(f.airline.name)}">
@@ -1074,9 +1073,8 @@
           <div class="flight-cost">
             <div class="amt">$${f.price.toLocaleString()}</div>
             <div class="per">cash</div>
-            <div class="award">or <b>${f.award.fullMiles.toLocaleString()}</b> miles</div>
-            <div class="award">or <b>${f.award.partialMiles.toLocaleString()}</b> mi + $${f.award.copay.toLocaleString()}</div>
             <a class="book-btn" href="${book}" target="_blank" rel="noopener noreferrer">${bookLabel}</a>
+            ${starFlight ? `<a class="award-btn" href="${unitedAwardUrl(f)}" target="_blank" rel="noopener noreferrer">See miles on United →</a>` : ""}
           </div>
         </article>`;
     });

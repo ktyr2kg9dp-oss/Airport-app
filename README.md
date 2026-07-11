@@ -127,14 +127,20 @@ Flight mode offers a full search form whose results represent every selection:
 Results show a **summary of your selections** followed by matching flight
 options (airline honours the alliance/specific choice, departure honours the
 chosen hour, dates fall inside the range, and price reflects class + luggage),
-sorted by price. Each option shows the **airline name and logo**, two
-award-redemption alternatives to the cash fare (a **full miles** price and a
-**miles + money** partial-redemption price), and a **Book** link so the ticket can be purchased. For most searches the Book link
-opens a Google Flights search for that exact route, date, cabin and airline.
-**When the search is by Star Alliance**, bookings instead open on **united.com**
-(United Airlines, a Star Alliance member that can ticket Star Alliance
-itineraries) and the button reads "Book on United". (Airline logos load from a
-logo CDN on the live app and fall back to the airline code offline.)
+sorted by price. Each option shows the **airline name and logo**, the **real
+cash fare**, and a **Book** link. For most searches the Book link opens a Google
+Flights search for that exact route, date, cabin and airline. **When the search
+is by Star Alliance**, bookings instead open on **united.com** (a Star Alliance
+member that can ticket Star Alliance itineraries) and the button reads "Book on
+United". (Airline logos load from a logo CDN on the live app and fall back to the
+airline code offline.)
+
+**Miles / award prices:** real award (miles) prices are exclusive to each
+airline's loyalty account and aren't available through any public API, so O·Fly
+does not estimate them. Instead, Star Alliance flights show a **"See miles on
+United"** button that opens United's own award search for that route/date — your
+real MileagePlus price shows after you sign in on United (O·Fly never stores any
+credentials).
 
 **Live flights:** with the backend server + SerpApi key running, flight
 searches call the **Google Flights** engine and return **real, current flights
