@@ -7,6 +7,15 @@ message straight to the other's screen — in real time.
 No accounts, no build step, no database. Just a shared **pair code** and two
 phones.
 
+## Get your own live app in one click
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ktyr2kg9dp-oss/Airport-app)
+
+Click the button, sign in to [Render](https://render.com) (free), and **Apply**.
+In a couple of minutes you get a public URL like `https://cup-les.onrender.com`.
+Open it on both phones, enter the same pair code, and you're connected. On your
+phone, use **Add to Home Screen** so it behaves like a real installed app.
+
 ## How it works
 
 1. Both partners open the app and type the **same pair code** (anything you
