@@ -36,6 +36,19 @@
         </div>
       </div>
 
+      <!-- Amount + currency: shown for every payment method -->
+      <div class="field">
+        <span class="field-label">Amount</span>
+        <div class="amount-row">
+          <input type="text" id="amount" name="amount" inputmode="decimal"
+                 placeholder="0.00" autocomplete="off" />
+          <div class="currency-toggle" role="group" aria-label="Currency">
+            <button type="button" class="cur" data-currency="USD" aria-pressed="true">$ USD</button>
+            <button type="button" class="cur" data-currency="ILS" aria-pressed="false">₪ NIS</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Payment method -->
       <div class="field">
         <span class="field-label">Payment method</span>
@@ -46,29 +59,13 @@
         </div>
       </div>
 
-      <!-- Method details: revealed once a method is chosen -->
-      <div id="method-details" class="method-details" hidden>
-        <!-- Amount + currency -->
-        <div class="field">
-          <span class="field-label">Amount</span>
-          <div class="amount-row">
-            <input type="text" id="amount" name="amount" inputmode="decimal"
-                   placeholder="0.00" autocomplete="off" />
-            <div class="currency-toggle" role="group" aria-label="Currency">
-              <button type="button" class="cur" data-currency="USD" aria-pressed="true">$ USD</button>
-              <button type="button" class="cur" data-currency="ILS" aria-pressed="false">₪ NIS</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Card endings: only when "Card" is selected -->
-        <div id="card-picker" class="field" hidden>
-          <span class="field-label">Which card?</span>
-          <div class="card-endings" role="group" aria-label="Card ending">
-            <button type="button" class="card-btn" data-card="4255">•••• 4255</button>
-            <button type="button" class="card-btn" data-card="6694">•••• 6694</button>
-            <button type="button" class="card-btn" data-card="1921">•••• 1921</button>
-          </div>
+      <!-- Card endings: only when "Card" is selected -->
+      <div id="card-picker" class="field" hidden>
+        <span class="field-label">Which card?</span>
+        <div class="card-endings" role="group" aria-label="Card ending">
+          <button type="button" class="card-btn" data-card="4255">•••• 4255</button>
+          <button type="button" class="card-btn" data-card="6694">•••• 6694</button>
+          <button type="button" class="card-btn" data-card="1921">•••• 1921</button>
         </div>
       </div>
 

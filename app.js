@@ -26,7 +26,6 @@
   const dateInput = $("#date");
   const timeInput = $("#time");
   const timeNaBtn = $("#time-na");
-  const methodDetails = $("#method-details");
   const amountInput = $("#amount");
   const cardPicker = $("#card-picker");
   const formError = $("#form-error");
@@ -83,14 +82,10 @@
     document.querySelectorAll(".seg").forEach((b) => {
       b.classList.toggle("active", b.dataset.method === method);
     });
-    // Reveal the amount entry (numeric keyboard) once a method is picked.
-    methodDetails.hidden = false;
     // Card endings only make sense for a card payment.
     const isCard = method === "card";
     cardPicker.hidden = !isCard;
     if (isCard) setCard(sel.card || DEFAULT_CARD);
-    // Focusing the amount pops up the numeric keyboard on mobile.
-    amountInput.focus();
   }
 
   // ---- currency ($ USD / ₪ NIS) ----------------------------------------
@@ -118,7 +113,6 @@
     timeInput.value = nowHM();
     sel.method = null;
     document.querySelectorAll(".seg").forEach((b) => b.classList.remove("active"));
-    methodDetails.hidden = true;
     cardPicker.hidden = true;
     amountInput.value = "";
     setCurrency("USD");
