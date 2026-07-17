@@ -23,6 +23,7 @@ tallies per trip and jump back and forth at any time.
 | **Date** | **Today's date** | Set fresh every time you open the app. |
 | **Hour** | **The current hour** | Tap **Not relevant** if the time doesn't matter — it's saved without an hour. |
 | **Amount** | — | Tap it to open the **built-in number pad**; works on every device and for every method. Includes a **$ USD / ₪ NIS** toggle. |
+| **Type of expense** | — | **🍽️ Food**, **🚕 Uber / taxi**, **🏨 Hotel**, **🚗 Car rent**, or **⋯ Other**. Choosing *Other* reveals sub-types (**🚆 Train**, more later). |
 | **Payment method** | — | Choose **💵 Cash**, **💳 Card**, or **🏦 Bank transfer**. |
 | **Card** | **•••• 4255** | Shown only for card payments — pick **4255**, **6694**, or **1921**. |
 | **Receipt** | — | Snap a photo with your camera (or attach one). It's downscaled and stored with the payment; a thumbnail shows in the list. |
@@ -31,6 +32,22 @@ Each saved payment appears in the current trip's **Payments** list, newest
 first, with a running **Total** per currency. **Tap a payment to reopen it** —
 you can fix any field and hit **Save payment** to put it back in the list
 (sorted by date). The **✕** removes a payment.
+
+## Export a trip
+
+The **⬇︎ Export** button (top-right of the payments list) opens a clean,
+self-contained report for the current trip: a table of **date, time, amount,
+type of expense, card / method, and a receipt thumbnail**. Tap any thumbnail to
+open the full receipt image. The report has a **Print / Save as PDF** button and
+is a single standalone file, so from a phone you can **Save to Files**, email it,
+or print it — this is how you get a permanent copy (with receipts) off the app.
+
+### A note on receipt storage
+
+A web app can't automatically save files into an iPhone's Files or Photos
+library — iOS only lets that happen when *you* tap **Save to Files** through the
+share sheet. So receipts live **inside the app**, and **Export** is the on-demand
+way to pull a trip (table + images) out to your device whenever you want.
 
 ## Run it
 

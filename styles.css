@@ -233,6 +233,38 @@ body {
   color: #eafffb;
 }
 
+/* ---- type of expense (categories) ---- */
+.categories { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cat {
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.cat:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.cat.active { background: var(--teal-deep); border-color: var(--teal); color: #eafffb; }
+.cat-other { grid-column: 1 / -1; }
+
+.sub-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.subcat {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--card-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.subcat:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.subcat.active { background: var(--teal-deep); border-color: var(--teal); color: #eafffb; }
+
 /* ---- card-ending buttons ---- */
 .card-endings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .card-btn {
@@ -304,6 +336,7 @@ body {
   margin-bottom: 12px;
 }
 .list-head .card-title { margin: 0; }
+.head-actions { display: flex; align-items: center; gap: 10px; }
 .count {
   min-width: 26px;
   padding: 2px 10px;

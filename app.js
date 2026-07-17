@@ -40,6 +40,7 @@
     timeNa: $("#time-na"),
     amount: $("#amount"),
     keypad: $("#keypad"),
+    otherTypes: $("#other-types"),
     cardPicker: $("#card-picker"),
     photoInput: $("#photo-input"),
     photoPreview: $("#photo-preview"),
@@ -52,6 +53,7 @@
 
     paymentsCard: $("#payments-card"),
     paymentsTitle: $("#payments-title"),
+    exportBtn: $("#export-btn"),
     totalRow: $("#total-row"),
     total: $("#total"),
     list: $("#list"),
@@ -61,10 +63,20 @@
 
   const CURRENCY = { USD: "$", ILS: "₪" };
   const METHOD_LABEL = { cash: "💵 Cash", card: "💳 Card", transfer: "🏦 Bank transfer" };
+  const METHOD_PLAIN = { cash: "Cash", card: "Card", transfer: "Bank transfer" };
+  const CATEGORY_LABEL = {
+    food: "🍽️ Food",
+    taxi: "🚕 Uber / taxi",
+    hotel: "🏨 Hotel",
+    carrent: "🚗 Car rent",
+    other: "⋯ Other",
+  };
+  // Sub-types shown when "Other" is chosen (more to be added later).
+  const SUBCATEGORY_LABEL = { train: "🚆 Train" };
   const DEFAULT_CARD = "4255";
 
   // ---- app state --------------------------------------------------------
-  const sel = { method: null, currency: "USD", card: DEFAULT_CARD };
+  const sel = { method: null, currency: "USD", card: DEFAULT_CARD, category: null, subcategory: null };
   let activeTripId = null;
   let editingId = null; // payment id being edited, or null for a new one
   let stagedPhoto = null; // data URL of the receipt photo attached to the form
@@ -242,6 +254,24 @@
     $$(".card-btn").forEach((b) => b.classList.toggle("active", b.dataset.card === card));
   }
 
+  // ---- type of expense (category + "Other" sub-types) ------------------
+  function setCategory(category) {
+    sel.category = category;
+    $$(".cat").forEach((b) => b.classList.toggle("active", b.dataset.cat === category));
+    const isOther = category === "other";
+    els.otherTypes.hidden = !isOther;
+    if (!isOther) setSubcategory(null);
+  }
+  function setSubcategory(sub) {
+    sel.subcategory = sub;
+    $$(".subcat").forEach((b) => b.classList.toggle("active", b.dataset.sub === sub));
+  }
+  // Display label for a payment's expense type.
+  function categoryText(p) {
+    if (p.category === "other") return SUBCATEGORY_LABEL[p.subcategory] || "Other";
+    return CATEGORY_LABEL[p.category] || "";
+  }
+
   // ---- built-in number pad ---------------------------------------------
   function openKeypad() {
     els.keypad.hidden = false;
@@ -324,6 +354,10 @@
     sel.method = null;
     $$(".seg").forEach((b) => b.classList.remove("active"));
     els.cardPicker.hidden = true;
+    sel.category = null;
+    $$(".cat").forEach((b) => b.classList.remove("active"));
+    els.otherTypes.hidden = true;
+    setSubcategory(null);
     setCurrency("USD");
     setCard(DEFAULT_CARD);
     setStagedPhoto(null);
@@ -365,6 +399,13 @@
       els.cardPicker.hidden = true;
     }
     if (p.method === "card") setCard(p.card || DEFAULT_CARD);
+    if (p.category) setCategory(p.category);
+    else {
+      sel.category = null;
+      $$(".cat").forEach((b) => b.classList.remove("active"));
+      els.otherTypes.hidden = true;
+    }
+    if (p.category === "other") setSubcategory(p.subcategory || null);
     setStagedPhoto(p.photo || null);
     clearError();
     closeKeypad();
@@ -392,6 +433,10 @@
       showError("Please choose a payment method.");
       return;
     }
+    if (!sel.category) {
+      showError("Please choose a type of expense.");
+      return;
+    }
     const amount = parseFloat(els.amount.value);
     if (!(amount > 0)) {
       showError("Please enter an amount greater than zero.");
@@ -407,6 +452,8 @@
       amount,
       currency: sel.currency,
       card: sel.method === "card" ? sel.card : "",
+      category: sel.category,
+      subcategory: sel.category === "other" ? sel.subcategory || "" : "",
       photo: stagedPhoto || "",
     };
 
@@ -485,6 +532,7 @@
     );
     els.totalRow.hidden = payments.length === 0;
     els.total.textContent = totalParts.join("  ·  ");
+    els.exportBtn.hidden = payments.length === 0;
 
     for (const p of payments) {
       const li = document.createElement("li");
@@ -523,7 +571,9 @@
       const metaLine = document.createElement("span");
       metaLine.className = "item-meta";
       const timeText = p.time ? p.time : "no time";
-      metaLine.textContent = `${timeText} · ${methodDescription(p)}${p.photo ? " · 📎" : ""}`;
+      const catText = categoryText(p);
+      metaLine.textContent =
+        `${timeText}${catText ? " · " + catText : ""} · ${methodDescription(p)}${p.photo ? " · 📎" : ""}`;
 
       info.append(topLine, metaLine);
 
@@ -540,6 +590,145 @@
       li.append(info, del);
       els.list.append(li);
     }
+  }
+
+  // ---- export a trip to a self-contained HTML report -------------------
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
+  }
+  function methodCardText(p) {
+    if (p.method === "card") return "Card •••• " + (p.card || "");
+    return METHOD_PLAIN[p.method] || "";
+  }
+  function safeFileName(name) {
+    return (String(name).trim().replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "") || "trip");
+  }
+
+  function exportTrip() {
+    const trip = activeTrip();
+    if (!trip) return;
+    const payments = loadPayments()
+      .filter((p) => p.tripId === activeTripId)
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1; // chronological for a statement
+        return (a.time || "").localeCompare(b.time || "");
+      });
+    if (!payments.length) return;
+
+    const totals = {};
+    for (const p of payments) totals[p.currency] = (totals[p.currency] || 0) + Number(p.amount || 0);
+    const totalText = Object.keys(totals)
+      .map((cur) => `${CURRENCY[cur] || ""}${totals[cur].toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`)
+      .join("  ·  ");
+
+    const rows = payments
+      .map((p) => {
+        const thumb = p.photo
+          ? `<a href="#" class="thumb-link" data-full="${esc(p.photo)}"><img class="thumb" src="${esc(p.photo)}" alt="Receipt"></a>`
+          : `<span class="no-receipt">—</span>`;
+        return `<tr>
+          <td>${esc(formatDate(p.date))}</td>
+          <td>${esc(p.time || "—")}</td>
+          <td class="num">${esc(formatAmount(p))}</td>
+          <td>${esc(categoryText(p))}</td>
+          <td>${esc(methodCardText(p))}</td>
+          <td class="receipt-cell">${thumb}</td>
+        </tr>`;
+      })
+      .join("\n");
+
+    const generated = new Date().toLocaleString();
+    const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(trip.name)} — expenses</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0; padding: 24px; color: #0f172a; background: #f8fafc; }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  .meta { color: #64748b; font-size: 0.9rem; }
+  .summary { display: flex; gap: 24px; flex-wrap: wrap; margin: 14px 0 20px; }
+  .summary div { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; }
+  .summary .label { color: #64748b; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary .value { font-size: 1.25rem; font-weight: 800; color: #0f766e; }
+  .toolbar { margin-bottom: 14px; }
+  .btn { font: inherit; padding: 9px 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+  .btn:hover { background: #f1f5f9; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef2f7; font-size: 0.92rem; vertical-align: middle; }
+  th { background: #f1f5f9; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .receipt-cell { width: 72px; }
+  .thumb { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; cursor: zoom-in; display: block; }
+  .no-receipt { color: #94a3b8; }
+  .lightbox { position: fixed; inset: 0; background: rgba(15,23,42,0.85); display: none; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; z-index: 10; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  @media print { .toolbar { display: none; } body { background: #fff; padding: 0; } .thumb { cursor: default; } }
+</style></head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>${esc(trip.name)}</h1>
+      <span class="meta">Exported ${esc(generated)}</span>
+    </header>
+    <div class="summary">
+      <div><div class="label">Payments</div><div class="value">${payments.length}</div></div>
+      <div><div class="label">Total</div><div class="value">${esc(totalText)}</div></div>
+    </div>
+    <div class="toolbar"><button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button></div>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Time</th><th>Amount</th><th>Type</th><th>Card / method</th><th>Receipt</th>
+      </tr></thead>
+      <tbody>
+${rows}
+      </tbody>
+    </table>
+  </div>
+  <div class="lightbox" id="lightbox"><img id="lightbox-img" alt="Receipt"></div>
+  <script>
+    (function () {
+      var lb = document.getElementById("lightbox");
+      var lbImg = document.getElementById("lightbox-img");
+      document.querySelectorAll(".thumb-link").forEach(function (a) {
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          lbImg.src = a.getAttribute("data-full");
+          lb.classList.add("open");
+        });
+      });
+      lb.addEventListener("click", function () { lb.classList.remove("open"); lbImg.src = ""; });
+    })();
+  <\/script>
+</body></html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    // Open the report for viewing; fall back to a download if the popup is blocked.
+    const win = window.open(url, "_blank");
+    if (!win) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = safeFileName(trip.name) + "-expenses.html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
   // ---- wiring -----------------------------------------------------------
@@ -575,6 +764,11 @@
     $$(".seg").forEach((b) => b.addEventListener("click", () => setMethod(b.dataset.method)));
     $$(".cur").forEach((b) => b.addEventListener("click", () => setCurrency(b.dataset.currency)));
     $$(".card-btn").forEach((b) => b.addEventListener("click", () => setCard(b.dataset.card)));
+    $$(".cat").forEach((b) => b.addEventListener("click", () => setCategory(b.dataset.cat)));
+    $$(".subcat").forEach((b) => b.addEventListener("click", () => setSubcategory(b.dataset.sub)));
+
+    // Export the current trip.
+    els.exportBtn.addEventListener("click", exportTrip);
 
     // Receipt photo.
     els.photoInput.addEventListener("change", (e) => {

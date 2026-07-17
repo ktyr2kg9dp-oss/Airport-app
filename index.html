@@ -79,6 +79,21 @@
         </div>
       </div>
 
+      <!-- Type of expense -->
+      <div class="field">
+        <span class="field-label">Type of expense</span>
+        <div class="categories" role="group" aria-label="Type of expense">
+          <button type="button" class="cat" data-cat="food">🍽️ Food</button>
+          <button type="button" class="cat" data-cat="taxi">🚕 Uber / taxi</button>
+          <button type="button" class="cat" data-cat="hotel">🏨 Hotel</button>
+          <button type="button" class="cat" data-cat="carrent">🚗 Car rent</button>
+          <button type="button" class="cat cat-other" data-cat="other">⋯ Other</button>
+        </div>
+        <div id="other-types" class="sub-cats" hidden>
+          <button type="button" class="subcat" data-sub="train">🚆 Train</button>
+        </div>
+      </div>
+
       <!-- Payment method -->
       <div class="field">
         <span class="field-label">Payment method</span>
@@ -125,7 +140,10 @@
     <section class="card" id="payments-card" hidden>
       <div class="list-head">
         <h2 class="card-title" id="payments-title">Payments</h2>
-        <span class="count" id="count">0</span>
+        <div class="head-actions">
+          <button type="button" id="export-btn" class="chip" hidden>⬇︎ Export</button>
+          <span class="count" id="count">0</span>
+        </div>
       </div>
       <div class="total-row" id="total-row" hidden>
         <span>Total</span>
