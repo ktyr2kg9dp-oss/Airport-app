@@ -76,8 +76,17 @@ This repo includes a `render.yaml` blueprint:
 
 1. In [Render](https://render.com): **New +** → **Blueprint** → pick this repo
    → **Apply**.
-2. You get a public URL you can open from any device. On your phone, use
-   **Add to Home Screen** so it behaves like a real installed app.
+2. You get a public URL you can open from any device.
+
+### Install it as an app (Add to Home Screen)
+
+The app is a **PWA**: it ships a web manifest, app icons, and a service worker,
+so once it's on an `https://` URL you can install it to your home screen and it
+launches **full-screen** (no browser bars) and **works offline**.
+
+- **iPhone (Safari):** open the URL → **Share** → **Add to Home Screen**.
+- **Android (Chrome):** open the URL → menu **⋮** → **Install app** /
+  **Add to Home screen**.
 
 ## Under the hood
 
