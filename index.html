@@ -15,9 +15,24 @@
       <p class="tagline">Log every payment you make on your trip.</p>
     </header>
 
-    <!-- ============ New payment form ============ -->
-    <form id="expense-form" class="card" autocomplete="off" novalidate>
-      <h2 class="card-title">New payment</h2>
+    <!-- ============ Trips library ============ -->
+    <section class="card">
+      <div class="list-head">
+        <h2 class="card-title">Trips</h2>
+        <button type="button" id="new-trip-btn" class="chip">+ New trip</button>
+      </div>
+      <div id="new-trip-row" class="new-trip-row" hidden>
+        <input type="text" id="new-trip-name" maxlength="60"
+               placeholder="Trip name — e.g. Grand Canyon trip" autocomplete="off" />
+        <button type="button" id="create-trip-btn" class="btn primary btn-sm">Create</button>
+      </div>
+      <div id="trips" class="trips"></div>
+      <p id="trips-empty" class="empty">No trips yet — create your first trip to start adding payments.</p>
+    </section>
+
+    <!-- ============ New / edit payment form ============ -->
+    <form id="expense-form" class="card" autocomplete="off" novalidate hidden>
+      <h2 class="card-title" id="form-title">New payment</h2>
 
       <!-- Date -->
       <label class="field" for="date">
@@ -36,16 +51,31 @@
         </div>
       </div>
 
-      <!-- Amount + currency: shown for every payment method -->
+      <!-- Amount + currency (built-in number pad, shown for every method) -->
       <div class="field">
         <span class="field-label">Amount</span>
         <div class="amount-row">
-          <input type="text" id="amount" name="amount" inputmode="decimal"
-                 placeholder="0.00" autocomplete="off" />
+          <input type="text" id="amount" name="amount" inputmode="none" readonly
+                 placeholder="0.00" autocomplete="off" aria-label="Payment amount" />
           <div class="currency-toggle" role="group" aria-label="Currency">
             <button type="button" class="cur" data-currency="USD" aria-pressed="true">$ USD</button>
             <button type="button" class="cur" data-currency="ILS" aria-pressed="false">₪ NIS</button>
           </div>
+        </div>
+        <div id="keypad" class="keypad" hidden>
+          <button type="button" class="key" data-key="7">7</button>
+          <button type="button" class="key" data-key="8">8</button>
+          <button type="button" class="key" data-key="9">9</button>
+          <button type="button" class="key" data-key="4">4</button>
+          <button type="button" class="key" data-key="5">5</button>
+          <button type="button" class="key" data-key="6">6</button>
+          <button type="button" class="key" data-key="1">1</button>
+          <button type="button" class="key" data-key="2">2</button>
+          <button type="button" class="key" data-key="3">3</button>
+          <button type="button" class="key" data-key=".">.</button>
+          <button type="button" class="key" data-key="0">0</button>
+          <button type="button" class="key key-back" data-key="back" aria-label="Delete">⌫</button>
+          <button type="button" class="key key-done" data-key="done">Done</button>
         </div>
       </div>
 
@@ -69,19 +99,37 @@
         </div>
       </div>
 
+      <!-- Receipt photo -->
+      <div class="field">
+        <span class="field-label">Receipt</span>
+        <label class="photo-btn">
+          <span>📷 Take / choose photo</span>
+          <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
+        </label>
+        <div id="photo-preview" class="photo-preview" hidden>
+          <img id="photo-img" alt="Receipt photo" />
+          <button type="button" id="photo-remove" class="chip">Remove photo</button>
+        </div>
+      </div>
+
       <p id="form-error" class="form-error" hidden></p>
 
       <div class="form-actions">
-        <button type="submit" class="btn primary">Add payment</button>
+        <button type="submit" class="btn primary" id="submit-btn">Add payment</button>
+        <button type="button" id="cancel-btn" class="btn ghost" hidden>Cancel</button>
         <button type="button" id="reset-btn" class="btn ghost">Reset</button>
       </div>
     </form>
 
     <!-- ============ Saved payments ============ -->
-    <section class="card">
+    <section class="card" id="payments-card" hidden>
       <div class="list-head">
-        <h2 class="card-title">Payments</h2>
+        <h2 class="card-title" id="payments-title">Payments</h2>
         <span class="count" id="count">0</span>
+      </div>
+      <div class="total-row" id="total-row" hidden>
+        <span>Total</span>
+        <span id="total" class="total"></span>
       </div>
       <ul id="list" class="list"></ul>
       <p id="empty" class="empty">No payments yet — add your first one above.</p>

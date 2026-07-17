@@ -8,19 +8,29 @@ No accounts, no build step, no database. Your payments are saved locally in
 your own browser (`localStorage`), so the app works offline and your data
 stays on your device.
 
+## Trips
+
+Payments are grouped into **trips**. Create a trip (e.g. *Grand Canyon trip*)
+from the **Trips** library at the top, and every payment you add belongs to the
+currently open trip. Tap any trip button to switch to it — the form and the
+payments list follow the trip you have open, so you can keep separate running
+tallies per trip and jump back and forth at any time.
+
 ## Inputs
 
 | Input | Default when the app opens | Notes |
 |-------|----------------------------|-------|
 | **Date** | **Today's date** | Set fresh every time you open the app. |
 | **Hour** | **The current hour** | Tap **Not relevant** if the time doesn't matter — it's saved without an hour. |
+| **Amount** | — | Tap it to open the **built-in number pad**; works on every device and for every method. Includes a **$ USD / ₪ NIS** toggle. |
 | **Payment method** | — | Choose **💵 Cash**, **💳 Card**, or **🏦 Bank transfer**. |
-| **Amount** | — | Numeric entry (pops up the number keypad on phones) with a **$ USD / ₪ NIS** toggle. |
 | **Card** | **•••• 4255** | Shown only for card payments — pick **4255**, **6694**, or **1921**. |
+| **Receipt** | — | Snap a photo with your camera (or attach one). It's downscaled and stored with the payment; a thumbnail shows in the list. |
 
-Choosing a payment method opens the amount entry. Each saved payment appears in
-the **Payments** list below the form, newest first, and can be removed with the
-**✕** button. More inputs can be added on top of this foundation.
+Each saved payment appears in the current trip's **Payments** list, newest
+first, with a running **Total** per currency. **Tap a payment to reopen it** —
+you can fix any field and hit **Save payment** to put it back in the list
+(sorted by date). The **✕** removes a payment.
 
 ## Run it
 
@@ -46,7 +56,9 @@ This repo includes a `render.yaml` blueprint:
 
 ## Under the hood
 
-- **`index.html` / `styles.css`** — the form and the saved-payments list.
-- **`app.js`** — sets the date/hour defaults on open, handles the *Not
-  relevant* toggle, and saves/renders payments from `localStorage`.
+- **`index.html` / `styles.css`** — the trips library, the new/edit payment
+  form (with the built-in number pad), and the saved-payments list.
+- **`app.js`** — trips, date/hour defaults, the number pad, receipt-photo
+  capture/downscaling, add-or-edit logic, and per-trip rendering. Trips and
+  payments are persisted in `localStorage`.
 - **`server.js`** — a small, dependency-free static file server.
