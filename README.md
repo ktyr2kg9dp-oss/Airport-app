@@ -4,9 +4,9 @@ A tiny, no-friction app for logging the payments you make **while travelling**.
 Open it, and it's already set to today's date and the current hour — just add
 the payment and go.
 
-No accounts, no build step, no database. Your payments are saved locally in
-your own browser (`localStorage`), so the app works offline and your data
-stays on your device.
+No accounts, no build step, no server-side database. Your trips, payments, and
+receipts are saved **on your device** (in the browser's IndexedDB), so the app
+works offline and nothing leaves the phone until *you* export it.
 
 ## Trips
 
@@ -26,28 +26,36 @@ tallies per trip and jump back and forth at any time.
 | **Type of expense** | — | **🍽️ Food**, **🚕 Uber / taxi**, **🏨 Hotel**, **🚗 Car rent**, or **⋯ Other**. Choosing *Other* reveals sub-types (**🚆 Train**, more later). |
 | **Payment method** | — | Choose **💵 Cash**, **💳 Card**, or **🏦 Bank transfer**. |
 | **Card** | **•••• 4255** | Shown only for card payments — pick **4255**, **6694**, or **1921**. |
-| **Receipt** | — | Snap a photo with your camera (or attach one). It's downscaled and stored with the payment; a thumbnail shows in the list. |
+| **Receipt** | — | Snap a photo with your camera (or attach one). The app keeps a **light thumbnail** for the list plus a **~1600px full image** for export. |
 
 Each saved payment appears in the current trip's **Payments** list, newest
 first, with a running **Total** per currency. **Tap a payment to reopen it** —
 you can fix any field and hit **Save payment** to put it back in the list
 (sorted by date). The **✕** removes a payment.
 
-## Export a trip
+## Export a trip (PDF)
 
-The **⬇︎ Export** button (top-right of the payments list) opens a clean,
-self-contained report for the current trip: a table of **date, time, amount,
-type of expense, card / method, and a receipt thumbnail**. Tap any thumbnail to
-open the full receipt image. The report has a **Print / Save as PDF** button and
-is a single standalone file, so from a phone you can **Save to Files**, email it,
-or print it — this is how you get a permanent copy (with receipts) off the app.
+The **⬇︎ Export** button (top-right of the payments list) generates a real
+**PDF** for the current trip:
+
+- A summary (payment count + per-currency total).
+- A table of **date, time, amount, type of expense, card / method**, with a
+  small receipt thumbnail per row.
+- A **Receipts** section where each **full-resolution** receipt is attached on
+  its own page, captioned with its payment details.
+
+The PDF is produced entirely on-device (via a bundled copy of
+[jsPDF](https://github.com/parallax/jsPDF) in `vendor/` — no network needed).
+From a phone you can then **Save to Files**, email it, or drop it in iCloud.
 
 ### A note on receipt storage
 
-A web app can't automatically save files into an iPhone's Files or Photos
-library — iOS only lets that happen when *you* tap **Save to Files** through the
-share sheet. So receipts live **inside the app**, and **Export** is the on-demand
-way to pull a trip (table + images) out to your device whenever you want.
+A web app **can't** automatically save files into an iPhone's Files or Photos
+library, and it can't reach back into Photos later — iOS only allows saving when
+*you* tap **Save to Files** through the share sheet. So receipts live **inside
+the app** (durably, in IndexedDB): a light thumbnail for the list and a ~1600px
+copy for export. **Export** is the on-demand way to pull a trip — table plus the
+real receipt images — out to your device as a single PDF.
 
 ## Run it
 
@@ -75,7 +83,12 @@ This repo includes a `render.yaml` blueprint:
 
 - **`index.html` / `styles.css`** — the trips library, the new/edit payment
   form (with the built-in number pad), and the saved-payments list.
-- **`app.js`** — trips, date/hour defaults, the number pad, receipt-photo
-  capture/downscaling, add-or-edit logic, and per-trip rendering. Trips and
-  payments are persisted in `localStorage`.
+- **`app.js`** — trips, date/hour defaults, the number pad, the two-tier
+  receipt-photo pipeline, add-or-edit logic, per-trip rendering, and the PDF
+  export.
+- **`store.js`** — the persistence layer: IndexedDB (with a one-time import
+  from the old `localStorage` format) and an in-memory fallback. Payment
+  metadata + thumbnails stay cached for fast rendering; full-res images are
+  fetched on demand.
+- **`vendor/jspdf.umd.min.js`** — bundled PDF generator (no runtime network).
 - **`server.js`** — a small, dependency-free static file server.

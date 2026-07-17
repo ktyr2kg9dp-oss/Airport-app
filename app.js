@@ -1,28 +1,26 @@
 /*
  * Expense Manager — front-end logic.
  *
- * A small, dependency-free app for logging the payments you make while
- * travelling. Everything is stored locally in the browser (localStorage), so
- * it works offline and your data stays on your own device.
+ * A dependency-free app for logging the payments you make while travelling.
+ * Data is stored on-device via the Store layer (IndexedDB, see store.js), so
+ * it works offline and keeps many receipt photos durably.
  *
  * Features:
- *   • Trips     — a library of trips; each trip keeps its own payments.
- *   • Date      — defaults to today every time the app is opened.
- *   • Hour      — defaults to the current hour, with a "Not relevant" toggle.
+ *   • Trips     — a library of trips; each keeps its own payments.
+ *   • Date/Hour — default to today / the current hour ("Not relevant" toggle).
  *   • Amount    — built-in number pad + $ USD / ₪ NIS currency toggle.
+ *   • Type      — Food / Uber-taxi / Hotel / Car rent / Other (→ Train, …).
  *   • Method    — Cash / Card / Bank transfer (card ending shown for cards).
- *   • Receipt   — snap or attach a photo of the receipt.
+ *   • Receipt   — a photo is kept as a light thumbnail (for the list) plus a
+ *                 ~1600px full image (for export), stored separately.
  *   • Edit      — tap a saved payment to reopen and fix any of its data.
+ *   • Export    — a real PDF per trip, with the full-res receipts attached.
  */
 (function () {
   "use strict";
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
-  const LS_TRIPS = "expense-manager.trips";
-  const LS_PAYMENTS = "expense-manager.payments";
-  const LS_ACTIVE = "expense-manager.activeTrip";
 
   // ---- element handles --------------------------------------------------
   const els = {
@@ -71,46 +69,22 @@
     carrent: "🚗 Car rent",
     other: "⋯ Other",
   };
-  // Sub-types shown when "Other" is chosen (more to be added later).
+  const CATEGORY_PLAIN = {
+    food: "Food",
+    taxi: "Uber / taxi",
+    hotel: "Hotel",
+    carrent: "Car rent",
+    other: "Other",
+  };
   const SUBCATEGORY_LABEL = { train: "🚆 Train" };
+  const SUBCATEGORY_PLAIN = { train: "Train" };
   const DEFAULT_CARD = "4255";
 
-  // ---- app state --------------------------------------------------------
+  // ---- form selection state --------------------------------------------
   const sel = { method: null, currency: "USD", card: DEFAULT_CARD, category: null, subcategory: null };
-  let activeTripId = null;
-  let editingId = null; // payment id being edited, or null for a new one
-  let stagedPhoto = null; // data URL of the receipt photo attached to the form
-
-  // ---- storage ----------------------------------------------------------
-  function readJSON(key, fallback) {
-    try {
-      const v = JSON.parse(localStorage.getItem(key));
-      return v == null ? fallback : v;
-    } catch {
-      return fallback;
-    }
-  }
-  function loadTrips() {
-    const t = readJSON(LS_TRIPS, []);
-    return Array.isArray(t) ? t : [];
-  }
-  function saveTrips(trips) {
-    localStorage.setItem(LS_TRIPS, JSON.stringify(trips));
-  }
-  function loadPayments() {
-    const p = readJSON(LS_PAYMENTS, []);
-    return Array.isArray(p) ? p : [];
-  }
-  function savePayments(payments) {
-    try {
-      localStorage.setItem(LS_PAYMENTS, JSON.stringify(payments));
-      return true;
-    } catch (err) {
-      // Most likely the storage quota was exceeded (e.g. too many photos).
-      showError("Couldn't save — device storage is full. Try removing a receipt photo.");
-      return false;
-    }
-  }
+  let editingId = null;
+  // stagedPhoto: null (none) | { thumb, full } (new) | { thumb, existing: true } (keep)
+  let stagedPhoto = null;
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -147,71 +121,65 @@
 
   // ---- trips ------------------------------------------------------------
   function activeTrip() {
-    return loadTrips().find((t) => t.id === activeTripId) || null;
+    return Store.trips.find((t) => t.id === Store.activeTripId) || null;
+  }
+  function paymentCount(tripId) {
+    return Store.payments.filter((p) => p.tripId === tripId).length;
   }
 
-  function selectTrip(id) {
-    activeTripId = id;
-    localStorage.setItem(LS_ACTIVE, id || "");
-    exitEditMode();
+  async function selectTrip(id) {
+    await Store.setActiveTrip(id);
     resetForm();
     renderTrips();
     renderPayments();
   }
-
-  function createTrip(name) {
+  async function createTrip(name) {
     const clean = String(name || "").trim().slice(0, 60);
     if (!clean) {
       els.newTripName.focus();
       return;
     }
-    const trips = loadTrips();
     const trip = { id: uid(), name: clean, createdAt: Date.now() };
-    trips.push(trip);
-    saveTrips(trips);
+    await Store.saveTrip(trip);
     els.newTripName.value = "";
     els.newTripRow.hidden = true;
-    selectTrip(trip.id);
+    await selectTrip(trip.id);
   }
-
-  function deleteTrip(id) {
-    const trips = loadTrips();
-    const trip = trips.find((t) => t.id === id);
+  async function deleteTrip(id) {
+    const trip = Store.trips.find((t) => t.id === id);
     if (!trip) return;
-    const count = loadPayments().filter((p) => p.tripId === id).length;
+    const count = paymentCount(id);
     const msg = count
       ? `Delete "${trip.name}" and its ${count} payment${count === 1 ? "" : "s"}?`
       : `Delete "${trip.name}"?`;
     if (!window.confirm(msg)) return;
-    saveTrips(trips.filter((t) => t.id !== id));
-    savePayments(loadPayments().filter((p) => p.tripId !== id));
-    if (activeTripId === id) {
-      const remaining = loadTrips();
-      selectTrip(remaining.length ? remaining[0].id : null);
+    const wasActive = Store.activeTripId === id;
+    await Store.deleteTrip(id);
+    if (wasActive) {
+      await selectTrip(Store.trips.length ? Store.trips[0].id : null);
     } else {
       renderTrips();
     }
   }
 
   function renderTrips() {
-    const trips = loadTrips().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const trips = Store.trips.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     els.trips.innerHTML = "";
     els.tripsEmpty.hidden = trips.length > 0;
 
     for (const t of trips) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "trip-btn" + (t.id === activeTripId ? " active" : "");
+      btn.className = "trip-btn" + (t.id === Store.activeTripId ? " active" : "");
       btn.addEventListener("click", () => selectTrip(t.id));
 
       const name = document.createElement("span");
       name.className = "trip-name";
       name.textContent = t.name;
 
-      const count = loadPayments().filter((p) => p.tripId === t.id).length;
       const badge = document.createElement("span");
       badge.className = "trip-count";
-      badge.textContent = String(count);
+      badge.textContent = String(paymentCount(t.id));
 
       const del = document.createElement("span");
       del.className = "trip-del";
@@ -227,13 +195,12 @@
       els.trips.append(btn);
     }
 
-    // Show/hide the form + payments depending on whether a trip is open.
     const hasActive = !!activeTrip();
     els.form.hidden = !hasActive;
     els.paymentsCard.hidden = !hasActive;
   }
 
-  // ---- payment method / currency / card --------------------------------
+  // ---- method / currency / card ----------------------------------------
   function setMethod(method) {
     sel.method = method;
     $$(".seg").forEach((b) => b.classList.toggle("active", b.dataset.method === method));
@@ -254,7 +221,7 @@
     $$(".card-btn").forEach((b) => b.classList.toggle("active", b.dataset.card === card));
   }
 
-  // ---- type of expense (category + "Other" sub-types) ------------------
+  // ---- type of expense --------------------------------------------------
   function setCategory(category) {
     sel.category = category;
     $$(".cat").forEach((b) => b.classList.toggle("active", b.dataset.cat === category));
@@ -266,10 +233,13 @@
     sel.subcategory = sub;
     $$(".subcat").forEach((b) => b.classList.toggle("active", b.dataset.sub === sub));
   }
-  // Display label for a payment's expense type.
   function categoryText(p) {
     if (p.category === "other") return SUBCATEGORY_LABEL[p.subcategory] || "Other";
     return CATEGORY_LABEL[p.category] || "";
+  }
+  function categoryPlain(p) {
+    if (p.category === "other") return SUBCATEGORY_PLAIN[p.subcategory] || "Other";
+    return CATEGORY_PLAIN[p.category] || "";
   }
 
   // ---- built-in number pad ---------------------------------------------
@@ -290,48 +260,50 @@
     } else if (key === ".") {
       if (!v.includes(".")) v = v === "" ? "0." : v + ".";
     } else {
-      // digit
-      if (v === "0") v = key; // replace a lone leading zero
+      if (v === "0") v = key;
       else v += key;
-      // keep at most two decimals
       const dot = v.indexOf(".");
       if (dot !== -1 && v.length - dot > 3) return;
     }
     els.amount.value = v;
   }
 
-  // ---- receipt photo ----------------------------------------------------
+  // ---- receipt photo (light thumbnail + ~1600px full) ------------------
+  function scaleToDataURL(img, max, quality) {
+    let { width, height } = img;
+    if (width >= height && width > max) {
+      height = Math.round((height * max) / width);
+      width = max;
+    } else if (height > width && height > max) {
+      width = Math.round((width * max) / height);
+      height = max;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", quality);
+  }
   function handlePhoto(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        // Downscale so receipts don't blow past the storage quota.
-        const max = 1024;
-        let { width, height } = img;
-        if (width > height && width > max) {
-          height = Math.round((height * max) / width);
-          width = max;
-        } else if (height > max) {
-          width = Math.round((width * max) / height);
-          height = max;
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        setStagedPhoto(canvas.toDataURL("image/jpeg", 0.6));
+        setStagedPhoto({
+          full: scaleToDataURL(img, 1600, 0.82),
+          thumb: scaleToDataURL(img, 240, 0.6),
+        });
       };
       img.onerror = () => showError("That image couldn't be read. Try another photo.");
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
   }
-  function setStagedPhoto(dataUrl) {
-    stagedPhoto = dataUrl || null;
-    if (stagedPhoto) {
-      els.photoImg.src = stagedPhoto;
+  function setStagedPhoto(staged) {
+    stagedPhoto = staged || null;
+    if (stagedPhoto && stagedPhoto.thumb) {
+      els.photoImg.src = stagedPhoto.thumb;
       els.photoPreview.hidden = false;
     } else {
       els.photoImg.removeAttribute("src");
@@ -339,7 +311,18 @@
     }
   }
 
-  // ---- form: defaults, edit, submit ------------------------------------
+  // ---- form: defaults / edit / submit ----------------------------------
+  function setTimeNotRelevant(on) {
+    els.timeNa.setAttribute("aria-pressed", String(on));
+    els.timeNa.classList.toggle("active", on);
+    els.time.disabled = on;
+    if (on) els.time.value = "";
+    else if (!els.time.value) els.time.value = nowHM();
+  }
+  function isTimeNotRelevant() {
+    return els.timeNa.getAttribute("aria-pressed") === "true";
+  }
+
   function resetForm() {
     editingId = null;
     els.formTitle.textContent = "New payment";
@@ -364,19 +347,8 @@
     clearError();
   }
 
-  function setTimeNotRelevant(on) {
-    els.timeNa.setAttribute("aria-pressed", String(on));
-    els.timeNa.classList.toggle("active", on);
-    els.time.disabled = on;
-    if (on) els.time.value = "";
-    else if (!els.time.value) els.time.value = nowHM();
-  }
-  function isTimeNotRelevant() {
-    return els.timeNa.getAttribute("aria-pressed") === "true";
-  }
-
   function editPayment(id) {
-    const p = loadPayments().find((x) => x.id === id);
+    const p = Store.payments.find((x) => x.id === id);
     if (!p) return;
     editingId = id;
     els.formTitle.textContent = "Edit payment";
@@ -406,22 +378,17 @@
       els.otherTypes.hidden = true;
     }
     if (p.category === "other") setSubcategory(p.subcategory || null);
-    setStagedPhoto(p.photo || null);
+    setStagedPhoto(p.hasPhoto ? { thumb: p.thumb, existing: true } : null);
     clearError();
     closeKeypad();
-
     els.form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function exitEditMode() {
-    editingId = null;
-  }
-
-  function submitForm(e) {
+  async function submitForm(e) {
     e.preventDefault();
     clearError();
 
-    if (!activeTripId) {
+    if (!Store.activeTripId) {
       showError("Create or select a trip first.");
       return;
     }
@@ -444,8 +411,11 @@
       return;
     }
 
-    const payments = loadPayments();
-    const fields = {
+    const existing = editingId ? Store.payments.find((x) => x.id === editingId) : null;
+    const meta = {
+      id: editingId || uid(),
+      tripId: existing ? existing.tripId : Store.activeTripId,
+      createdAt: existing ? existing.createdAt : Date.now(),
       date: els.date.value,
       time: isTimeNotRelevant() ? "" : els.time.value || "",
       method: sel.method,
@@ -454,31 +424,40 @@
       card: sel.method === "card" ? sel.card : "",
       category: sel.category,
       subcategory: sel.category === "other" ? sel.subcategory || "" : "",
-      photo: stagedPhoto || "",
+      thumb: "",
+      hasPhoto: false,
     };
+    if (editingId) meta.updatedAt = Date.now();
 
-    if (editingId) {
-      const idx = payments.findIndex((x) => x.id === editingId);
-      if (idx !== -1) {
-        payments[idx] = Object.assign({}, payments[idx], fields, { updatedAt: Date.now() });
-      }
+    // Decide what happens to the full-res photo record.
+    let fullArg; // undefined = leave as-is; null = remove; string = write
+    if (stagedPhoto == null) {
+      meta.hasPhoto = false;
+      meta.thumb = "";
+      fullArg = null;
+    } else if (stagedPhoto.existing) {
+      meta.hasPhoto = true;
+      meta.thumb = stagedPhoto.thumb || "";
+      fullArg = undefined;
     } else {
-      payments.push(
-        Object.assign(
-          { id: uid(), tripId: activeTripId, createdAt: Date.now() },
-          fields
-        )
-      );
+      meta.hasPhoto = true;
+      meta.thumb = stagedPhoto.thumb || "";
+      fullArg = stagedPhoto.full;
     }
 
-    if (!savePayments(payments)) return; // quota error already surfaced
+    try {
+      await Store.savePayment(meta, fullArg);
+    } catch (err) {
+      showError("Couldn't save — device storage may be full. Try removing a receipt photo.");
+      return;
+    }
     resetForm();
-    renderTrips(); // refresh per-trip counts
+    renderTrips();
     renderPayments();
   }
 
-  function deletePayment(id) {
-    savePayments(loadPayments().filter((p) => p.id !== id));
+  async function deletePayment(id) {
+    await Store.deletePayment(id);
     if (editingId === id) resetForm();
     renderTrips();
     renderPayments();
@@ -498,15 +477,14 @@
     if (p.method === "card" && p.card) label += ` •••• ${p.card}`;
     return label;
   }
+  function methodCardText(p) {
+    if (p.method === "card") return "Card •••• " + (p.card || "");
+    return METHOD_PLAIN[p.method] || "";
+  }
 
-  function renderPayments() {
-    const trip = activeTrip();
-    if (!trip) return;
-
-    els.paymentsTitle.textContent = `Payments · ${trip.name}`;
-
-    const payments = loadPayments()
-      .filter((p) => p.tripId === activeTripId)
+  function tripPayments(tripId) {
+    return Store.payments
+      .filter((p) => p.tripId === tripId)
       .sort((a, b) => {
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         const ta = a.time || "";
@@ -514,25 +492,33 @@
         if (ta !== tb) return ta < tb ? 1 : -1;
         return (b.createdAt || 0) - (a.createdAt || 0);
       });
+  }
 
+  function currencyTotals(payments) {
+    const totals = {};
+    for (const p of payments) totals[p.currency] = (totals[p.currency] || 0) + Number(p.amount || 0);
+    return Object.keys(totals).map(
+      (cur) =>
+        `${CURRENCY[cur] || ""}${totals[cur].toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`
+    );
+  }
+
+  function renderPayments() {
+    const trip = activeTrip();
+    if (!trip) return;
+    els.paymentsTitle.textContent = `Payments · ${trip.name}`;
+
+    const payments = tripPayments(Store.activeTripId);
     els.count.textContent = String(payments.length);
     els.list.innerHTML = "";
     els.empty.hidden = payments.length > 0;
-
-    // Totals, grouped by currency (mixing currencies can't be summed).
-    const totals = {};
-    for (const p of payments) {
-      totals[p.currency] = (totals[p.currency] || 0) + Number(p.amount || 0);
-    }
-    const totalParts = Object.keys(totals).map((cur) =>
-      `${CURRENCY[cur] || ""}${totals[cur].toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    );
-    els.totalRow.hidden = payments.length === 0;
-    els.total.textContent = totalParts.join("  ·  ");
     els.exportBtn.hidden = payments.length === 0;
+
+    els.totalRow.hidden = payments.length === 0;
+    els.total.textContent = currencyTotals(payments).join("  ·  ");
 
     for (const p of payments) {
       const li = document.createElement("li");
@@ -547,10 +533,10 @@
         }
       });
 
-      if (p.photo) {
+      if (p.hasPhoto && p.thumb) {
         const thumb = document.createElement("img");
         thumb.className = "item-thumb";
-        thumb.src = p.photo;
+        thumb.src = p.thumb;
         thumb.alt = "Receipt";
         li.append(thumb);
       }
@@ -573,7 +559,7 @@
       const timeText = p.time ? p.time : "no time";
       const catText = categoryText(p);
       metaLine.textContent =
-        `${timeText}${catText ? " · " + catText : ""} · ${methodDescription(p)}${p.photo ? " · 📎" : ""}`;
+        `${timeText}${catText ? " · " + catText : ""} · ${methodDescription(p)}${p.hasPhoto ? " · 📎" : ""}`;
 
       info.append(topLine, metaLine);
 
@@ -592,148 +578,195 @@
     }
   }
 
-  // ---- export a trip to a self-contained HTML report -------------------
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[c]));
-  }
-  function methodCardText(p) {
-    if (p.method === "card") return "Card •••• " + (p.card || "");
-    return METHOD_PLAIN[p.method] || "";
-  }
+  // ---- export a trip to a real PDF (with full-res receipts) ------------
   function safeFileName(name) {
-    return (String(name).trim().replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "") || "trip");
+    return String(name).trim().replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "") || "trip";
   }
 
-  function exportTrip() {
+  async function exportTrip() {
     const trip = activeTrip();
     if (!trip) return;
-    const payments = loadPayments()
-      .filter((p) => p.tripId === activeTripId)
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      showError("PDF export isn't available (the PDF library didn't load).");
+      return;
+    }
+
+    // Chronological order reads best in a statement.
+    const payments = Store.payments
+      .filter((p) => p.tripId === Store.activeTripId)
       .sort((a, b) => {
-        if (a.date !== b.date) return a.date < b.date ? -1 : 1; // chronological for a statement
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
         return (a.time || "").localeCompare(b.time || "");
       });
     if (!payments.length) return;
 
-    const totals = {};
-    for (const p of payments) totals[p.currency] = (totals[p.currency] || 0) + Number(p.amount || 0);
-    const totalText = Object.keys(totals)
-      .map((cur) => `${CURRENCY[cur] || ""}${totals[cur].toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`)
-      .join("  ·  ");
-
-    const rows = payments
-      .map((p) => {
-        const thumb = p.photo
-          ? `<a href="#" class="thumb-link" data-full="${esc(p.photo)}"><img class="thumb" src="${esc(p.photo)}" alt="Receipt"></a>`
-          : `<span class="no-receipt">—</span>`;
-        return `<tr>
-          <td>${esc(formatDate(p.date))}</td>
-          <td>${esc(p.time || "—")}</td>
-          <td class="num">${esc(formatAmount(p))}</td>
-          <td>${esc(categoryText(p))}</td>
-          <td>${esc(methodCardText(p))}</td>
-          <td class="receipt-cell">${thumb}</td>
-        </tr>`;
-      })
-      .join("\n");
-
-    const generated = new Date().toLocaleString();
-    const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(trip.name)} — expenses</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    margin: 0; padding: 24px; color: #0f172a; background: #f8fafc; }
-  .wrap { max-width: 900px; margin: 0 auto; }
-  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
-  h1 { font-size: 1.5rem; margin: 0; }
-  .meta { color: #64748b; font-size: 0.9rem; }
-  .summary { display: flex; gap: 24px; flex-wrap: wrap; margin: 14px 0 20px; }
-  .summary div { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; }
-  .summary .label { color: #64748b; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  .summary .value { font-size: 1.25rem; font-weight: 800; color: #0f766e; }
-  .toolbar { margin-bottom: 14px; }
-  .btn { font: inherit; padding: 9px 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
-  .btn:hover { background: #f1f5f9; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef2f7; font-size: 0.92rem; vertical-align: middle; }
-  th { background: #f1f5f9; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
-  tr:last-child td { border-bottom: none; }
-  td.num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-  .receipt-cell { width: 72px; }
-  .thumb { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; cursor: zoom-in; display: block; }
-  .no-receipt { color: #94a3b8; }
-  .lightbox { position: fixed; inset: 0; background: rgba(15,23,42,0.85); display: none; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; z-index: 10; }
-  .lightbox.open { display: flex; }
-  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-  @media print { .toolbar { display: none; } body { background: #fff; padding: 0; } .thumb { cursor: default; } }
-</style></head>
-<body>
-  <div class="wrap">
-    <header>
-      <h1>${esc(trip.name)}</h1>
-      <span class="meta">Exported ${esc(generated)}</span>
-    </header>
-    <div class="summary">
-      <div><div class="label">Payments</div><div class="value">${payments.length}</div></div>
-      <div><div class="label">Total</div><div class="value">${esc(totalText)}</div></div>
-    </div>
-    <div class="toolbar"><button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button></div>
-    <table>
-      <thead><tr>
-        <th>Date</th><th>Time</th><th>Amount</th><th>Type</th><th>Card / method</th><th>Receipt</th>
-      </tr></thead>
-      <tbody>
-${rows}
-      </tbody>
-    </table>
-  </div>
-  <div class="lightbox" id="lightbox"><img id="lightbox-img" alt="Receipt"></div>
-  <script>
-    (function () {
-      var lb = document.getElementById("lightbox");
-      var lbImg = document.getElementById("lightbox-img");
-      document.querySelectorAll(".thumb-link").forEach(function (a) {
-        a.addEventListener("click", function (e) {
-          e.preventDefault();
-          lbImg.src = a.getAttribute("data-full");
-          lb.classList.add("open");
-        });
-      });
-      lb.addEventListener("click", function () { lb.classList.remove("open"); lbImg.src = ""; });
-    })();
-  <\/script>
-</body></html>`;
-
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    // Open the report for viewing; fall back to a download if the popup is blocked.
-    const win = window.open(url, "_blank");
-    if (!win) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = safeFileName(trip.name) + "-expenses.html";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+    els.exportBtn.disabled = true;
+    const prevLabel = els.exportBtn.textContent;
+    els.exportBtn.textContent = "Preparing…";
+    try {
+      // Fetch the full-resolution receipt images up front.
+      const fulls = {};
+      for (const p of payments) {
+        if (p.hasPhoto) fulls[p.id] = await Store.getPhoto(p.id);
+      }
+      buildPdf(trip, payments, fulls);
+    } catch (err) {
+      showError("Something went wrong building the PDF.");
+    } finally {
+      els.exportBtn.disabled = false;
+      els.exportBtn.textContent = prevLabel;
     }
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function buildPdf(trip, payments, fulls) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const M = 40; // margin
+    const teal = [15, 118, 110];
+    const grey = [110, 120, 130];
+    const line = [225, 230, 236];
+
+    // ----- header -----
+    let y = M + 6;
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text(trip.name, M, y);
+    y += 20;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(grey[0], grey[1], grey[2]);
+    doc.text("Exported " + new Date().toLocaleString(), M, y);
+    y += 14;
+    const totalText = currencyTotals(payments).join("   ·   ");
+    doc.text(`${payments.length} payment${payments.length === 1 ? "" : "s"}   ·   Total ${totalText}`, M, y);
+    y += 22;
+
+    // ----- table -----
+    const cols = [
+      { key: "date", label: "Date", w: 92 },
+      { key: "time", label: "Time", w: 42 },
+      { key: "amount", label: "Amount", w: 68, align: "right" },
+      { key: "type", label: "Type", w: 92 },
+      { key: "method", label: "Card / method", w: 108 },
+      { key: "receipt", label: "Receipt", w: 74 },
+    ];
+    const rowH = 40;
+    const startX = M;
+
+    function drawHeader() {
+      doc.setFillColor(241, 245, 249);
+      doc.rect(startX, y, pageW - M * 2, 22, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      let x = startX + 6;
+      for (const c of cols) {
+        const tx = c.align === "right" ? x + c.w - 6 : x;
+        doc.text(c.label.toUpperCase(), tx, y + 15, { align: c.align === "right" ? "right" : "left" });
+        x += c.w;
+      }
+      y += 22;
+    }
+
+    drawHeader();
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+
+    for (const p of payments) {
+      if (y + rowH > pageH - M) {
+        doc.addPage();
+        y = M;
+        drawHeader();
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+      }
+      const cellY = y + rowH / 2 + 3;
+      let x = startX + 6;
+      doc.setTextColor(15, 23, 42);
+      const values = {
+        date: formatDate(p.date),
+        time: p.time || "—",
+        amount: formatAmount(p),
+        type: categoryPlain(p),
+        method: methodCardText(p),
+      };
+      for (const c of cols) {
+        if (c.key === "receipt") {
+          if (p.hasPhoto && fulls[p.id]) {
+            try {
+              doc.addImage(fulls[p.id], "JPEG", x, y + 5, 30, 30);
+            } catch (e) {
+              /* skip a bad image */
+            }
+          } else {
+            doc.setTextColor(grey[0], grey[1], grey[2]);
+            doc.text("—", x, cellY);
+            doc.setTextColor(15, 23, 42);
+          }
+        } else {
+          const tx = c.align === "right" ? x + c.w - 6 : x;
+          const text = doc.splitTextToSize(String(values[c.key] || ""), c.w - 8)[0] || "";
+          doc.text(text, tx, cellY, { align: c.align === "right" ? "right" : "left" });
+        }
+        x += c.w;
+      }
+      doc.setDrawColor(line[0], line[1], line[2]);
+      doc.line(startX, y + rowH, pageW - M, y + rowH);
+      y += rowH;
+    }
+
+    // ----- receipts appendix (full-size images) -----
+    const withPhotos = payments.filter((p) => p.hasPhoto && fulls[p.id]);
+    if (withPhotos.length) {
+      doc.addPage();
+      y = M + 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(teal[0], teal[1], teal[2]);
+      doc.text("Receipts", M, y);
+      doc.setTextColor(15, 23, 42);
+
+      for (const p of withPhotos) {
+        doc.addPage();
+        const caption = `${formatDate(p.date)}${p.time ? " · " + p.time : ""}  —  ${formatAmount(p)}  ·  ${categoryPlain(p)}  ·  ${methodCardText(p)}`;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(grey[0], grey[1], grey[2]);
+        doc.text(doc.splitTextToSize(caption, pageW - M * 2), M, M);
+        doc.setTextColor(15, 23, 42);
+
+        let props;
+        try {
+          props = doc.getImageProperties(fulls[p.id]);
+        } catch (e) {
+          continue;
+        }
+        const availW = pageW - M * 2;
+        const availH = pageH - M * 2 - 24;
+        let w = availW;
+        let h = (w * props.height) / props.width;
+        if (h > availH) {
+          h = availH;
+          w = (h * props.width) / props.height;
+        }
+        const ix = (pageW - w) / 2;
+        const iy = M + 18;
+        try {
+          doc.addImage(fulls[p.id], "JPEG", ix, iy, w, h);
+        } catch (e) {
+          /* skip */
+        }
+      }
+    }
+
+    doc.save(safeFileName(trip.name) + "-expenses.pdf");
   }
 
   // ---- wiring -----------------------------------------------------------
-  function init() {
-    // Trips.
+  function wire() {
     els.newTripBtn.addEventListener("click", () => {
       els.newTripRow.hidden = !els.newTripRow.hidden;
       if (!els.newTripRow.hidden) els.newTripName.focus();
@@ -746,13 +779,11 @@ ${rows}
       }
     });
 
-    // Form.
     els.form.addEventListener("submit", submitForm);
     els.resetBtn.addEventListener("click", resetForm);
     els.cancelBtn.addEventListener("click", resetForm);
     els.timeNa.addEventListener("click", () => setTimeNotRelevant(!isTimeNotRelevant()));
 
-    // Number pad — opens whenever the amount field is tapped.
     els.amount.addEventListener("focus", openKeypad);
     els.amount.addEventListener("click", openKeypad);
     els.keypad.addEventListener("click", (e) => {
@@ -760,36 +791,33 @@ ${rows}
       if (key) pressKey(key.dataset.key);
     });
 
-    // Method / currency / card.
     $$(".seg").forEach((b) => b.addEventListener("click", () => setMethod(b.dataset.method)));
     $$(".cur").forEach((b) => b.addEventListener("click", () => setCurrency(b.dataset.currency)));
     $$(".card-btn").forEach((b) => b.addEventListener("click", () => setCard(b.dataset.card)));
     $$(".cat").forEach((b) => b.addEventListener("click", () => setCategory(b.dataset.cat)));
     $$(".subcat").forEach((b) => b.addEventListener("click", () => setSubcategory(b.dataset.sub)));
 
-    // Export the current trip.
     els.exportBtn.addEventListener("click", exportTrip);
 
-    // Receipt photo.
     els.photoInput.addEventListener("change", (e) => {
       handlePhoto(e.target.files && e.target.files[0]);
-      e.target.value = ""; // allow re-picking the same file
+      e.target.value = "";
     });
     els.photoRemove.addEventListener("click", () => setStagedPhoto(null));
-
-    // Restore the last active trip (if it still exists).
-    const savedActive = localStorage.getItem(LS_ACTIVE);
-    const trips = loadTrips();
-    activeTripId = trips.some((t) => t.id === savedActive)
-      ? savedActive
-      : trips.length
-      ? trips[0].id
-      : null;
-
-    resetForm();
-    renderTrips();
-    if (activeTripId) renderPayments();
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  async function init() {
+    wire();
+    resetForm();
+    try {
+      await Store.init();
+    } catch (e) {
+      /* Store falls back to memory mode internally */
+    }
+    renderTrips();
+    if (Store.activeTripId && activeTrip()) renderPayments();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();
