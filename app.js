@@ -1,275 +1,322 @@
 /*
- * Cup-Les — front-end logic.
+ * Expense Manager — front-end logic.
  *
- * Handles role selection, connects a Server-Sent Events stream keyed by the
- * couple's pair code, sends the chosen phrase on each button tap, and renders
- * whatever the partner sends back.
+ * A small, dependency-free app for logging the payments you make while
+ * travelling. Everything is stored locally in the browser (localStorage), so
+ * it works offline and your data stays on your own device.
  *
- * If it can't reach a server (e.g. the file was opened directly as file://),
- * it falls back to a BroadcastChannel so two tabs in the SAME browser can
- * still talk — handy for a quick demo.
+ * Inputs so far:
+ *   • Date   — defaults to today every time the app is opened.
+ *   • Hour   — defaults to the current hour, with a "Not relevant" toggle.
+ *   • Method — Cash / Card / Bank transfer.
+ *   • Amount — numeric entry with a $ USD / ₪ NIS currency toggle.
+ *   • Card   — when "Card" is chosen, pick which card ending (4255 / 6694 / 1921).
+ *
+ * The form is structured so more inputs can be added as the app grows.
  */
 (function () {
   "use strict";
 
   const $ = (sel) => document.querySelector(sel);
-  const state = {
-    role: null, // "husband" | "wife"
-    pair: "",
-    source: null, // EventSource
-    channel: null, // BroadcastChannel fallback
-    partnerOnline: false,
+
+  const LS_KEY = "expense-manager.payments";
+
+  // ---- element handles --------------------------------------------------
+  const form = $("#expense-form");
+  const dateInput = $("#date");
+  const timeInput = $("#time");
+  const timeNaBtn = $("#time-na");
+  const methodDetails = $("#method-details");
+  const amountInput = $("#amount");
+  const cardPicker = $("#card-picker");
+  const formError = $("#form-error");
+  const listEl = $("#list");
+  const emptyEl = $("#empty");
+  const countEl = $("#count");
+
+  // Currency symbols for display.
+  const CURRENCY = { USD: "$", ILS: "₪" };
+
+  // Selection state for the button-based inputs.
+  const sel = {
+    method: null, // "cash" | "card" | "transfer"
+    currency: "USD", // "USD" | "ILS"
+    card: "4255", // default card ending
   };
+  const DEFAULT_CARD = "4255";
 
-  const LS_KEY = "cuples.session";
-
-  // ---- helpers ----------------------------------------------------------
-  function pick(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-  function partnerOf(role) {
-    return role === "husband" ? "wife" : "husband";
-  }
-  function sanitizePair(code) {
-    return String(code || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
+  // ---- date / time helpers ---------------------------------------------
+  // Local (not UTC) YYYY-MM-DD, so "today" matches the user's own calendar.
+  function todayISO(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 
-  function showScreen(id) {
-    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
-    $("#" + id).classList.add("active");
+  // Current time as HH:MM for the <input type="time"> default.
+  function nowHM(d = new Date()) {
+    const h = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${h}:${min}`;
   }
 
-  // ---- start / stop a session ------------------------------------------
-  function startSession(role, pair) {
-    state.role = role;
-    state.pair = pair;
-    localStorage.setItem(LS_KEY, JSON.stringify({ role, pair }));
-    showScreen(role === "wife" ? "screen-wife" : "screen-husband");
-    connect();
-  }
-
-  function leaveSession() {
-    if (state.source) { state.source.close(); state.source = null; }
-    if (state.channel) { state.channel.close(); state.channel = null; }
-    state.role = null;
-    state.partnerOnline = false;
-    localStorage.removeItem(LS_KEY);
-    showScreen("screen-setup");
-  }
-
-  // ---- connectivity -----------------------------------------------------
-  function connect() {
-    setPresence(false, "Connecting…");
-    // Prefer the real-time server stream.
-    try {
-      const url = `/events?pair=${encodeURIComponent(state.pair)}&role=${state.role}`;
-      const es = new EventSource(url);
-      state.source = es;
-
-      es.addEventListener("message", (e) => onMessage(JSON.parse(e.data)));
-      es.addEventListener("presence", (e) => {
-        const { partnerOnline } = JSON.parse(e.data);
-        if (partnerOnline) state.partnerOnline = true;
-        else state.partnerOnline = false;
-        setPresence(state.partnerOnline);
-      });
-      es.addEventListener("open", () => setPresence(state.partnerOnline));
-      es.addEventListener("error", () => {
-        // Server not reachable (or stream dropped). Fall back to local demo.
-        if (es.readyState === EventSource.CLOSED) {
-          es.close();
-          state.source = null;
-          startLocalFallback();
-        }
-      });
-    } catch (err) {
-      startLocalFallback();
+  // ---- "Not relevant" toggle for the hour ------------------------------
+  function setTimeNotRelevant(on) {
+    timeNaBtn.setAttribute("aria-pressed", String(on));
+    timeNaBtn.classList.toggle("active", on);
+    timeInput.disabled = on;
+    if (on) {
+      timeInput.value = "";
+    } else if (!timeInput.value) {
+      timeInput.value = nowHM();
     }
   }
 
-  // Same-browser fallback so two tabs can demo without a server.
-  function startLocalFallback() {
-    if (!("BroadcastChannel" in window)) {
-      setPresence(false, "Offline — start the server to connect");
+  function isTimeNotRelevant() {
+    return timeNaBtn.getAttribute("aria-pressed") === "true";
+  }
+
+  // ---- payment method (Cash / Card / Bank transfer) --------------------
+  function setMethod(method) {
+    sel.method = method;
+    document.querySelectorAll(".seg").forEach((b) => {
+      b.classList.toggle("active", b.dataset.method === method);
+    });
+    // Reveal the amount entry (numeric keyboard) once a method is picked.
+    methodDetails.hidden = false;
+    // Card endings only make sense for a card payment.
+    const isCard = method === "card";
+    cardPicker.hidden = !isCard;
+    if (isCard) setCard(sel.card || DEFAULT_CARD);
+    // Focusing the amount pops up the numeric keyboard on mobile.
+    amountInput.focus();
+  }
+
+  // ---- currency ($ USD / ₪ NIS) ----------------------------------------
+  function setCurrency(currency) {
+    sel.currency = currency;
+    document.querySelectorAll(".cur").forEach((b) => {
+      const on = b.dataset.currency === currency;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+  }
+
+  // ---- card ending ------------------------------------------------------
+  function setCard(card) {
+    sel.card = card;
+    document.querySelectorAll(".card-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.card === card);
+    });
+  }
+
+  // ---- defaults: run every time the app opens ---------------------------
+  function applyDefaults() {
+    dateInput.value = todayISO();
+    setTimeNotRelevant(false);
+    timeInput.value = nowHM();
+    sel.method = null;
+    document.querySelectorAll(".seg").forEach((b) => b.classList.remove("active"));
+    methodDetails.hidden = true;
+    cardPicker.hidden = true;
+    amountInput.value = "";
+    setCurrency("USD");
+    setCard(DEFAULT_CARD);
+    formError.hidden = true;
+  }
+
+  // ---- storage ----------------------------------------------------------
+  function loadPayments() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+      return Array.isArray(raw) ? raw : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function savePayments(payments) {
+    localStorage.setItem(LS_KEY, JSON.stringify(payments));
+  }
+
+  // ---- rendering --------------------------------------------------------
+  function formatDate(iso) {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  const METHOD_LABEL = { cash: "💵 Cash", card: "💳 Card", transfer: "🏦 Bank transfer" };
+
+  function formatAmount(p) {
+    const symbol = CURRENCY[p.currency] || "";
+    const value = Number(p.amount || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `${symbol}${value}`;
+  }
+
+  function methodDescription(p) {
+    let label = METHOD_LABEL[p.method] || p.method || "";
+    if (p.method === "card" && p.card) label += ` •••• ${p.card}`;
+    return label;
+  }
+
+  function render() {
+    const payments = loadPayments();
+    // Newest first: sort by date then time (blank time sorts last within a day).
+    payments.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      const ta = a.time || "";
+      const tb = b.time || "";
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    countEl.textContent = String(payments.length);
+    listEl.innerHTML = "";
+
+    if (payments.length === 0) {
+      emptyEl.hidden = false;
       return;
     }
-    const ch = new BroadcastChannel("cuples:" + state.pair);
-    state.channel = ch;
-    ch.onmessage = (e) => {
-      const data = e.data || {};
-      if (data.type === "hello" && data.role === partnerOf(state.role)) {
-        state.partnerOnline = true;
-        setPresence(true);
-        ch.postMessage({ type: "hi", role: state.role });
-      } else if (data.type === "hi" && data.role === partnerOf(state.role)) {
-        state.partnerOnline = true;
-        setPresence(true);
-      } else if (data.type === "message" && data.to === state.role) {
-        onMessage(data.payload);
-      }
-    };
-    ch.postMessage({ type: "hello", role: state.role });
-    setPresence(false, "Same-device mode");
-  }
+    emptyEl.hidden = true;
 
-  function setPresence(online, labelOverride) {
-    const suffix = state.role === "wife" ? "wife" : "husband";
-    const dot = $("#dot-" + suffix);
-    const label = $("#presence-" + suffix);
-    if (!dot || !label) return;
-    dot.classList.toggle("online", !!online);
-    const partner = partnerOf(state.role) === "husband" ? "Husband" : "Wife";
-    label.textContent = labelOverride || (online ? `${partner} is online` : `Waiting for ${partner.toLowerCase()}…`);
-  }
+    for (const p of payments) {
+      const li = document.createElement("li");
+      li.className = "item";
 
-  // ---- sending ----------------------------------------------------------
-  function sendPhrase(kind) {
-    const phrase = pick(PHRASES[kind]);
-    const payload = { kind, text: phrase, from: state.role, at: Date.now() };
+      const info = document.createElement("div");
+      info.className = "item-info";
 
-    // Optimistic local echo in the sender's own feed.
-    localEcho(kind, phrase);
-    flashToast(`Sent: “${phrase}”`);
+      const topLine = document.createElement("div");
+      topLine.className = "item-top";
 
-    // Try the server first.
-    fetch("/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pair: state.pair, from: state.role, kind, text: phrase }),
-    }).catch(() => {
-      // If the server isn't there, relay via the local channel instead.
-      if (state.channel) {
-        state.channel.postMessage({ type: "message", to: partnerOf(state.role), payload });
-      }
-    });
+      const dateLine = document.createElement("span");
+      dateLine.className = "item-date";
+      dateLine.textContent = formatDate(p.date);
 
-    // Belt & suspenders: if we're already in local mode, also relay now.
-    if (state.channel) {
-      state.channel.postMessage({ type: "message", to: partnerOf(state.role), payload });
+      const amountLine = document.createElement("span");
+      amountLine.className = "item-amount";
+      amountLine.textContent = formatAmount(p);
+
+      topLine.append(dateLine, amountLine);
+
+      const metaLine = document.createElement("span");
+      metaLine.className = "item-meta";
+      const timeText = p.time ? p.time : "no time";
+      metaLine.textContent = `${timeText} · ${methodDescription(p)}`;
+
+      info.append(topLine, metaLine);
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "item-del";
+      del.setAttribute("aria-label", "Delete payment");
+      del.textContent = "✕";
+      del.addEventListener("click", () => deletePayment(p.id));
+
+      li.append(info, del);
+      listEl.append(li);
     }
   }
 
-  // ---- receiving --------------------------------------------------------
-  function onMessage(payload) {
-    const kind = KINDS[payload.kind] ? payload.kind : "bow";
-    const meta = KINDS[kind];
-    addFeedItem(state.role, {
-      dir: "in",
-      tone: meta.tone,
-      title: meta.title,
-      text: payload.text,
-      at: payload.at || Date.now(),
-    });
-    showBanner(meta.title, payload.text, meta.tone);
-    vibrate(kind);
+  // ---- actions ----------------------------------------------------------
+  function addPayment(e) {
+    e.preventDefault();
+    formError.hidden = true;
+
+    const date = dateInput.value;
+    if (!date) {
+      formError.textContent = "Please choose a date.";
+      formError.hidden = false;
+      dateInput.focus();
+      return;
+    }
+
+    if (!sel.method) {
+      formError.textContent = "Please choose a payment method.";
+      formError.hidden = false;
+      return;
+    }
+
+    const amount = parseFloat(amountInput.value);
+    if (!(amount > 0)) {
+      formError.textContent = "Please enter an amount greater than zero.";
+      formError.hidden = false;
+      amountInput.focus();
+      return;
+    }
+
+    const payment = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      date,
+      time: isTimeNotRelevant() ? "" : timeInput.value || "",
+      method: sel.method,
+      amount,
+      currency: sel.currency,
+      card: sel.method === "card" ? sel.card : "",
+      createdAt: Date.now(),
+    };
+
+    const payments = loadPayments();
+    payments.push(payment);
+    savePayments(payments);
+
+    render();
+    applyDefaults(); // reset the form back to today / current hour
   }
 
-  function localEcho(kind, text) {
-    const meta = KINDS[kind] || { title: "Sent", tone: "sent" };
-    addFeedItem(state.role, {
-      dir: "out",
-      tone: meta.tone,
-      title: "You sent",
-      text,
-      at: Date.now(),
-    });
-  }
-
-  function addFeedItem(role, item) {
-    const feed = $("#feed-" + (role === "wife" ? "wife" : "husband"));
-    if (!feed) return;
-    const li = document.createElement("li");
-    li.className = `feed-item ${item.dir} tone-${item.tone}`;
-    const time = new Date(item.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    li.innerHTML =
-      `<div class="feed-head"><span class="feed-kind"></span><span class="feed-time"></span></div>` +
-      `<div class="feed-body"></div>`;
-    li.querySelector(".feed-kind").textContent = item.title;
-    li.querySelector(".feed-time").textContent = time;
-    li.querySelector(".feed-body").textContent = item.text;
-    feed.prepend(li);
-    while (feed.children.length > 40) feed.removeChild(feed.lastChild);
-  }
-
-  // ---- little bits of feedback -----------------------------------------
-  let bannerTimer = null;
-  function showBanner(title, text, tone) {
-    const banner = $("#banner");
-    $("#banner-title").textContent = title;
-    $("#banner-text").textContent = text;
-    banner.className = "banner tone-" + tone;
-    banner.hidden = false;
-    // force reflow so the transition replays
-    void banner.offsetWidth;
-    banner.classList.add("show");
-    clearTimeout(bannerTimer);
-    bannerTimer = setTimeout(() => {
-      banner.classList.remove("show");
-      setTimeout(() => (banner.hidden = true), 350);
-    }, 5000);
-  }
-
-  let toastTimer = null;
-  function flashToast(msg) {
-    const el = $("#toast-" + (state.role === "wife" ? "wife" : "husband"));
-    if (!el) return;
-    el.textContent = msg;
-    el.hidden = false;
-    el.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      el.classList.remove("show");
-      setTimeout(() => (el.hidden = true), 300);
-    }, 2500);
-  }
-
-  function vibrate(kind) {
-    if (!navigator.vibrate) return;
-    const patterns = { mad: [120, 60, 120], bad: [80], cucumber: [40, 40, 40, 40], bow: [200] };
-    navigator.vibrate(patterns[kind] || [80]);
+  function deletePayment(id) {
+    const payments = loadPayments().filter((p) => p.id !== id);
+    savePayments(payments);
+    render();
   }
 
   // ---- wiring -----------------------------------------------------------
   function init() {
-    // Role selection buttons.
-    document.querySelectorAll(".role-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const pair = sanitizePair($("#pair-code").value);
-        const err = $("#setup-error");
-        if (!pair) {
-          err.textContent = "Please enter a pair code first (letters or numbers).";
-          err.hidden = false;
-          $("#pair-code").focus();
-          return;
-        }
-        err.hidden = true;
-        startSession(btn.dataset.role, pair);
-      });
+    applyDefaults();
+    render();
+
+    form.addEventListener("submit", addPayment);
+    $("#reset-btn").addEventListener("click", applyDefaults);
+
+    timeNaBtn.addEventListener("click", () => {
+      setTimeNotRelevant(!isTimeNotRelevant());
     });
 
-    // Action buttons on both screens.
-    document.querySelectorAll("[data-send]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        btn.classList.remove("tapped");
-        void btn.offsetWidth;
-        btn.classList.add("tapped");
-        sendPhrase(btn.dataset.send);
-      });
+    // Payment-method segmented control.
+    document.querySelectorAll(".seg").forEach((b) => {
+      b.addEventListener("click", () => setMethod(b.dataset.method));
     });
 
-    // Back / change buttons.
-    document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", leaveSession));
+    // Currency toggle.
+    document.querySelectorAll(".cur").forEach((b) => {
+      b.addEventListener("click", () => setCurrency(b.dataset.currency));
+    });
 
-    // Resume a previous session on reload.
-    try {
-      const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-      if (saved && saved.role && saved.pair) {
-        $("#pair-code").value = saved.pair;
-        startSession(saved.role, saved.pair);
+    // Card-ending buttons.
+    document.querySelectorAll(".card-btn").forEach((b) => {
+      b.addEventListener("click", () => setCard(b.dataset.card));
+    });
+
+    // Keep the amount to digits and a single decimal point.
+    amountInput.addEventListener("input", () => {
+      let v = amountInput.value.replace(/[^0-9.]/g, "");
+      const firstDot = v.indexOf(".");
+      if (firstDot !== -1) {
+        v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "");
       }
-    } catch {
-      /* ignore */
-    }
+      amountInput.value = v;
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);

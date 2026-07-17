@@ -1,46 +1,26 @@
-# Cup-Les 💑
+# Expense Manager 💳
 
-A tiny, playful messaging app **just for a couple**. Each partner opens the
-app on their own phone, picks who they are, and taps a button to send a little
-message straight to the other's screen — in real time.
+A tiny, no-friction app for logging the payments you make **while travelling**.
+Open it, and it's already set to today's date and the current hour — just add
+the payment and go.
 
-No accounts, no build step, no database. Just a shared **pair code** and two
-phones.
+No accounts, no build step, no database. Your payments are saved locally in
+your own browser (`localStorage`), so the app works offline and your data
+stays on your device.
 
-## Get your own live app in one click
+## Inputs
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ktyr2kg9dp-oss/Airport-app)
+| Input | Default when the app opens | Notes |
+|-------|----------------------------|-------|
+| **Date** | **Today's date** | Set fresh every time you open the app. |
+| **Hour** | **The current hour** | Tap **Not relevant** if the time doesn't matter — it's saved without an hour. |
+| **Payment method** | — | Choose **💵 Cash**, **💳 Card**, or **🏦 Bank transfer**. |
+| **Amount** | — | Numeric entry (pops up the number keypad on phones) with a **$ USD / ₪ NIS** toggle. |
+| **Card** | **•••• 4255** | Shown only for card payments — pick **4255**, **6694**, or **1921**. |
 
-Click the button, sign in to [Render](https://render.com) (free), and **Apply**.
-In a couple of minutes you get a public URL like `https://cup-les.onrender.com`.
-Open it on both phones, enter the same pair code, and you're connected. On your
-phone, use **Add to Home Screen** so it behaves like a real installed app.
-
-## How it works
-
-1. Both partners open the app and type the **same pair code** (anything you
-   like — `lovebirds`, `us42`, …). That's what links your two apps together.
-2. Each picks **Husband** or **Wife**.
-3. Tap a button → the other phone lights up with a message.
-
-### The Wife's app
-One big button:
-
-| Button | What it does |
-|--------|--------------|
-| **BOW** 🙇‍♀️ | Sends one of **10** loving, praising messages to the husband. |
-
-### The Husband's app
-Three buttons:
-
-| Button | What it sends to the wife |
-|--------|---------------------------|
-| **MAD** 😠 | One of **10** messages saying he's upset because something went wrong. |
-| **BAD** 🙁 | One of **10** messages saying she wasn't behaving very nicely. |
-| **🥒 (cucumber)** | One of **10** playful messages saying he'd like some intimacy. |
-
-Every tap picks a **random** phrase from that button's set of ten. All the
-phrases live in [`data.js`](data.js) if you'd like to edit or add your own.
+Choosing a payment method opens the amount entry. Each saved payment appears in
+the **Payments** list below the form, newest first, and can be removed with the
+**✕** button. More inputs can be added on top of this foundation.
 
 ## Run it
 
@@ -52,36 +32,21 @@ node server.js
 # then open http://localhost:3000
 ```
 
-For the two of you to reach each other from **different phones**, the app
-needs to be reachable by both — deploy it (see below) or run it on a machine
-both phones can hit on your home network, e.g. `http://<your-computer-ip>:3000`.
+You can also just open `index.html` directly in a browser — the app is fully
+client-side.
 
-### Deploy for free (Render)
+## Deploy for free (Render)
 
 This repo includes a `render.yaml` blueprint:
 
 1. In [Render](https://render.com): **New +** → **Blueprint** → pick this repo
    → **Apply**.
-2. You get a public URL. Open it on both phones, enter the same pair code, and
-   you're connected from anywhere.
+2. You get a public URL you can open from any device. On your phone, use
+   **Add to Home Screen** so it behaves like a real installed app.
 
 ## Under the hood
 
-- **`index.html` / `styles.css`** — the two screens (setup + role view).
-- **`app.js`** — role selection, sending phrases, rendering incoming ones. It
-  connects to the server over **Server-Sent Events** for instant delivery.
-- **`server.js`** — a small, dependency-free relay. It holds each open SSE
-  connection in memory keyed by *pair code + role*, and when one partner POSTs
-  a phrase to `/send` it pushes it down the other partner's stream. Nothing is
-  stored — messages exist only for the instant it takes to relay them.
-- **`data.js`** — the 4 × 10 phrase catalogue, shared as the single source of
-  truth.
-
-### Same-device demo
-
-Open two browser tabs (or windows) to the app, use the same pair code, and
-pick a different role in each. Even without a reachable server, the tabs fall
-back to a `BroadcastChannel` so you can try the whole flow on one device.
-
-> Cup-Les is meant to be lighthearted fun between partners. Be kind to each
-> other. 💛
+- **`index.html` / `styles.css`** — the form and the saved-payments list.
+- **`app.js`** — sets the date/hour defaults on open, handles the *Not
+  relevant* toggle, and saves/renders payments from `localStorage`.
+- **`server.js`** — a small, dependency-free static file server.

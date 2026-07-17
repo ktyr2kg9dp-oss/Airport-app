@@ -1,9 +1,9 @@
-# Render Blueprint — deploys Cup-Les as a free always-on web app.
+# Render Blueprint — deploys Expense Manager as a free web app.
 # In Render: New + → Blueprint → pick this repo → Apply. You'll get a public
-# URL both partners can open from their phones (share the same pair code).
+# URL you can open from any device (data is stored locally in each browser).
 services:
   - type: web
-    name: cup-les
+    name: expense-manager
     runtime: node
     plan: free
     buildCommand: npm install
