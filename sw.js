@@ -8,13 +8,14 @@
  *
  * Bump CACHE_VERSION on any change to force old caches out.
  */
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const CACHE = "expense-manager-" + CACHE_VERSION;
 const ASSETS = [
   "./",
   "index.html",
   "styles.css",
   "store.js",
+  "cloud.js",
   "app.js",
   "vendor/jspdf.umd.min.js",
   "manifest.json",

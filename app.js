@@ -27,6 +27,15 @@
     settingsBtn: $("#settings-btn"),
     settingsOverlay: $("#settings-overlay"),
     settingsClose: $("#settings-close"),
+    accountSignedout: $("#account-signedout"),
+    accountSignedin: $("#account-signedin"),
+    accountEmail: $("#account-email"),
+    authEmail: $("#auth-email"),
+    authPassword: $("#auth-password"),
+    authSignin: $("#auth-signin"),
+    authSignup: $("#auth-signup"),
+    authSignout: $("#auth-signout"),
+    syncStatus: $("#sync-status"),
     defaultCurrency: $("#default-currency"),
     locationMode: $("#location-mode"),
     defaultLocationRow: $("#default-location-row"),
@@ -200,7 +209,8 @@
       els.newTripName.focus();
       return;
     }
-    const trip = { id: uid(), name: clean, createdAt: Date.now() };
+    const now = Date.now();
+    const trip = { id: uid(), name: clean, createdAt: now, updatedAt: now };
     await Store.saveTrip(trip);
     els.newTripName.value = "";
     els.newTripRow.hidden = true;
@@ -585,8 +595,8 @@
       subcategory: sel.category === "other" ? sel.subcategory.trim() : "",
       thumb: "",
       hasPhoto: false,
+      updatedAt: Date.now(),
     };
-    if (editingId) meta.updatedAt = Date.now();
 
     // Decide what happens to the full-res photo record.
     let fullArg; // undefined = leave as-is; null = remove; string = write
@@ -1013,6 +1023,10 @@
       setDefaultCurrency(els.defaultCurrency.value, true);
       if (!editingId) setCurrency(defaultCurrency);
     });
+    els.authSignin.addEventListener("click", () => doAuth("signin"));
+    els.authSignup.addEventListener("click", () => doAuth("signup"));
+    els.authSignout.addEventListener("click", doSignOut);
+
     els.locationMode.addEventListener("change", () => {
       const mode = els.locationMode.value;
       Store.setSetting("locationMode", mode);
@@ -1049,10 +1063,49 @@
     els.locationMode.value = mode;
     els.defaultLocation.value = Store.getSetting("defaultLocation", "") || "";
     els.defaultLocationRow.hidden = mode !== "fixed";
+    updateAccountUI();
     els.settingsOverlay.hidden = false;
   }
   function closeSettings() {
     els.settingsOverlay.hidden = true;
+  }
+
+  // ---- account / cloud sync --------------------------------------------
+  function cloudReady() {
+    return typeof window !== "undefined" && window.Cloud;
+  }
+  function updateAccountUI() {
+    if (!cloudReady()) return;
+    const signedIn = Cloud.isSignedIn();
+    els.accountSignedout.hidden = signedIn;
+    els.accountSignedin.hidden = !signedIn;
+    if (signedIn) els.accountEmail.textContent = "Signed in as " + Cloud.currentEmail();
+  }
+  async function doAuth(kind) {
+    if (!cloudReady()) return;
+    const email = els.authEmail.value.trim();
+    const password = els.authPassword.value;
+    if (!email || !password) {
+      els.syncStatus.textContent = "Enter an email and password.";
+      return;
+    }
+    els.syncStatus.textContent = kind === "signup" ? "Creating account…" : "Signing in…";
+    els.authSignin.disabled = els.authSignup.disabled = true;
+    try {
+      if (kind === "signup") await Cloud.signUp(email, password);
+      else await Cloud.signIn(email, password);
+      els.authPassword.value = "";
+      updateAccountUI();
+    } catch (e) {
+      els.syncStatus.textContent = (e && e.message ? e.message : "Sign-in failed").slice(0, 160);
+    } finally {
+      els.authSignin.disabled = els.authSignup.disabled = false;
+    }
+  }
+  async function doSignOut() {
+    if (!cloudReady()) return;
+    await Cloud.signOut();
+    updateAccountUI();
   }
 
   async function init() {
@@ -1075,6 +1128,28 @@
     resetForm();
     renderTrips();
     if (Store.activeTripId && activeTrip()) renderPayments();
+
+    // Optional cloud sync — dormant unless signed in; never breaks the app.
+    try {
+      if (cloudReady()) {
+        Cloud.init({
+          onStatus: (s) => {
+            if (els.syncStatus) els.syncStatus.textContent = s;
+          },
+          onRender: () => {
+            renderTrips();
+            if (Store.activeTripId && activeTrip()) renderPayments();
+            else if (!activeTrip() && Store.trips.length) {
+              // active trip may have been removed remotely; open the first one
+              selectTrip(Store.trips[0].id);
+            }
+          },
+        });
+        updateAccountUI();
+      }
+    } catch (e) {
+      /* cloud is optional */
+    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

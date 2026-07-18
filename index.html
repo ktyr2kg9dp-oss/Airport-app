@@ -188,6 +188,22 @@
         <button type="button" id="settings-close" class="icon-btn" aria-label="Close settings">✕</button>
       </div>
       <div class="field">
+        <span class="field-label">Cloud sync</span>
+        <div id="account-signedout" class="auth-form">
+          <input type="email" id="auth-email" class="select" placeholder="you@example.com" autocomplete="username" />
+          <input type="password" id="auth-password" class="select" placeholder="Password (min 6 characters)" autocomplete="current-password" />
+          <div class="auth-actions">
+            <button type="button" id="auth-signin" class="btn primary btn-sm">Sign in</button>
+            <button type="button" id="auth-signup" class="btn ghost btn-sm">Create account</button>
+          </div>
+        </div>
+        <div id="account-signedin" class="auth-form" hidden>
+          <p class="hint" id="account-email"></p>
+          <button type="button" id="auth-signout" class="btn ghost btn-sm">Sign out</button>
+        </div>
+        <p class="hint" id="sync-status">Not signed in</p>
+      </div>
+      <div class="field">
         <span class="field-label">Default currency</span>
         <select id="default-currency" class="select"></select>
         <p class="hint">New payments start with this currency.</p>
@@ -212,6 +228,7 @@
 
   <script src="vendor/jspdf.umd.min.js"></script>
   <script src="store.js"></script>
+  <script src="cloud.js"></script>
   <script src="app.js"></script>
   <script>
     // Register the service worker so the app installs and works offline.

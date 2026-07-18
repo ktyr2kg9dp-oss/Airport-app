@@ -25,6 +25,14 @@
   const cache = { trips: [], payments: [], activeTripId: null, settings: {} };
   const memPhotos = {}; // paymentId -> full data URL (memory fallback)
 
+  // Notifies the cloud layer of local changes (set via setChangeHandler).
+  let changeHandler = null;
+  function fireChange(op, table, id) {
+    if (changeHandler) {
+      try { changeHandler(op, table, id); } catch (e) {}
+    }
+  }
+
   function openDB() {
     return new Promise((resolve) => {
       let req;
@@ -150,21 +158,24 @@
       if (i === -1) cache.trips.push(trip);
       else cache.trips[i] = trip;
       if (!memoryMode) await put("trips", trip);
+      fireChange("upsert", "trips", trip.id);
     },
 
     async deleteTrip(id) {
       cache.trips = cache.trips.filter((t) => t.id !== id);
       const removed = cache.payments.filter((p) => p.tripId === id).map((p) => p.id);
       cache.payments = cache.payments.filter((p) => p.tripId !== id);
-      if (memoryMode) {
+      if (!memoryMode) {
+        await del("trips", id);
+        for (const pid of removed) {
+          await del("payments", pid);
+          await del("photos", pid);
+        }
+      } else {
         removed.forEach((pid) => delete memPhotos[pid]);
-        return;
       }
-      await del("trips", id);
-      for (const pid of removed) {
-        await del("payments", pid);
-        await del("photos", pid);
-      }
+      fireChange("delete", "trips", id);
+      removed.forEach((pid) => fireChange("delete", "payments", pid));
     },
 
     // `full`: undefined = leave photo as-is; null = remove; string = write.
@@ -186,16 +197,58 @@
       cache.payments = cache.payments.filter((p) => p.id !== id);
       if (memoryMode) {
         delete memPhotos[id];
-        return;
+      } else {
+        await del("payments", id);
+        await del("photos", id);
       }
-      await del("payments", id);
-      await del("photos", id);
+      fireChange("delete", "payments", id);
     },
 
     async getPhoto(paymentId) {
       if (memoryMode) return memPhotos[paymentId] || null;
       const rec = await getOne("photos", paymentId);
       return rec ? rec.full : null;
+    },
+
+    // ---- cloud sync hooks (applied silently — no change events) ----------
+    setChangeHandler(fn) {
+      changeHandler = fn;
+    },
+    async applyRemoteUpsert(table, row) {
+      if (table === "trips") {
+        const i = cache.trips.findIndex((t) => t.id === row.id);
+        const merged = i === -1 ? row : Object.assign({}, cache.trips[i], row);
+        if (i === -1) cache.trips.push(merged);
+        else cache.trips[i] = merged;
+        if (!memoryMode) await put("trips", merged);
+      } else {
+        const i = cache.payments.findIndex((p) => p.id === row.id);
+        const merged = i === -1 ? row : Object.assign({}, cache.payments[i], row);
+        if (i === -1) cache.payments.push(merged);
+        else cache.payments[i] = merged;
+        if (!memoryMode) await put("payments", merged);
+      }
+    },
+    async applyRemoteDelete(table, id) {
+      if (table === "trips") {
+        cache.trips = cache.trips.filter((t) => t.id !== id);
+        const removed = cache.payments.filter((p) => p.tripId === id).map((p) => p.id);
+        cache.payments = cache.payments.filter((p) => p.tripId !== id);
+        if (!memoryMode) {
+          await del("trips", id);
+          for (const pid of removed) {
+            await del("payments", pid);
+            await del("photos", pid);
+          }
+        }
+        if (cache.activeTripId === id) cache.activeTripId = cache.trips.length ? cache.trips[0].id : null;
+      } else {
+        cache.payments = cache.payments.filter((p) => p.id !== id);
+        if (!memoryMode) {
+          await del("payments", id);
+          await del("photos", id);
+        }
+      }
     },
   };
 

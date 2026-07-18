@@ -45,6 +45,28 @@ The **⚙️** button (top-right) opens Settings:
 
 More settings can be added here over time.
 
+## Cloud sync (optional, Supabase)
+
+The app works fully on-device with no account. If you want **backup and
+cross-device sync**, sign in under **⚙️ Settings → Cloud sync** (email +
+password). Trips and payments then sync to a [Supabase](https://supabase.com)
+project; signed out (or offline), the app behaves exactly as before — the cloud
+layer is strictly additive and never blocks local use.
+
+**One-time setup on your Supabase project:**
+
+1. Open your project → **SQL Editor** → run [`supabase-setup.sql`](supabase-setup.sql)
+   (creates the `trips` / `payments` tables with per-user row-level security).
+2. **Authentication → Sign In / Providers → Email**: for instant login without
+   an email round-trip, turn **Confirm email** off (optional).
+3. The project URL and publishable key live in `cloud.js` (both are public keys,
+   safe to commit; the `service_role` key must never go in the app).
+
+Sync is last-write-wins by timestamp, with an offline queue so changes made
+while offline upload when you're back online. Receipt **thumbnails** sync;
+full-resolution receipt images stay on-device for now (cloud storage for those
+is a planned next step).
+
 ## Export a trip (PDF)
 
 The **⬇︎ Export** button (top-right of the payments list) generates a real
