@@ -1,9 +1,15 @@
 /*
  * Expense Manager — service worker.
- * Caches the app shell so it launches instantly and works fully offline once
- * installed to the home screen. Bump CACHE to ship updated assets.
+ *
+ * Network-first: when online, always fetch the latest files (so updates reach
+ * installed home-screen apps automatically) and refresh the cache. When offline,
+ * fall back to the cached copy so the app still launches. The cache is only an
+ * offline safety net, never a reason to show a stale version.
+ *
+ * Bump CACHE_VERSION on any change to force old caches out.
  */
-const CACHE = "expense-manager-v1";
+const CACHE_VERSION = "v3";
+const CACHE = "expense-manager-" + CACHE_VERSION;
 const ASSETS = [
   "./",
   "index.html",
@@ -19,7 +25,10 @@ const ASSETS = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -35,16 +44,23 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+  // Only manage our own origin; let cross-origin calls (e.g. geocoding) pass through.
+  if (url.origin !== location.origin) return;
+
+  // Network-first, cache fallback.
   e.respondWith(
-    caches.match(req).then((hit) => {
-      if (hit) return hit;
-      return fetch(req).then((res) => {
-        if (res && res.status === 200 && new URL(req.url).origin === location.origin) {
+    fetch(req)
+      .then((res) => {
+        if (res && res.status === 200) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));
         }
         return res;
-      });
-    })
+      })
+      .catch(() =>
+        caches.match(req).then((hit) => hit || caches.match("index.html") || caches.match("./"))
+      )
   );
 });

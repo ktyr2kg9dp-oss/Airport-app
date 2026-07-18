@@ -215,9 +215,19 @@
   <script src="app.js"></script>
   <script>
     // Register the service worker so the app installs and works offline.
+    // When a new version takes control, reload once so the update shows right away.
     if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (refreshing) return;
+        refreshing = true;
+        location.reload();
+      });
       window.addEventListener("load", function () {
-        navigator.serviceWorker.register("sw.js").catch(function () {});
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          // Check for an updated service worker on each launch.
+          reg.update();
+        }).catch(function () {});
       });
     }
   </script>
