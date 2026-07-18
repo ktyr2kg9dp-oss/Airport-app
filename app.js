@@ -24,6 +24,11 @@
 
   // ---- element handles --------------------------------------------------
   const els = {
+    settingsBtn: $("#settings-btn"),
+    settingsOverlay: $("#settings-overlay"),
+    settingsClose: $("#settings-close"),
+    defaultCurrency: $("#default-currency"),
+
     newTripBtn: $("#new-trip-btn"),
     newTripRow: $("#new-trip-row"),
     newTripName: $("#new-trip-name"),
@@ -36,11 +41,18 @@
     date: $("#date"),
     time: $("#time"),
     timeNa: $("#time-na"),
+    location: $("#location"),
+    locationBtn: $("#location-btn"),
     amount: $("#amount"),
     keypad: $("#keypad"),
+    curDefault: $("#cur-default"),
+    curOther: $("#cur-other"),
+    currencySelect: $("#currency-select"),
     otherTypes: $("#other-types"),
+    otherText: $("#other-text"),
     cardPicker: $("#card-picker"),
-    photoInput: $("#photo-input"),
+    cameraInput: $("#camera-input"),
+    uploadInput: $("#upload-input"),
     photoPreview: $("#photo-preview"),
     photoImg: $("#photo-img"),
     photoRemove: $("#photo-remove"),
@@ -59,7 +71,52 @@
     count: $("#count"),
   };
 
-  const CURRENCY = { USD: "$", ILS: "₪" };
+  // A broad list of currencies (code, symbol, name). Extend freely.
+  const CURRENCIES = [
+    { code: "USD", symbol: "$", name: "US Dollar" },
+    { code: "EUR", symbol: "€", name: "Euro" },
+    { code: "ILS", symbol: "₪", name: "Israeli New Shekel" },
+    { code: "GBP", symbol: "£", name: "British Pound" },
+    { code: "JPY", symbol: "¥", name: "Japanese Yen" },
+    { code: "CHF", symbol: "Fr", name: "Swiss Franc" },
+    { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
+    { code: "AUD", symbol: "A$", name: "Australian Dollar" },
+    { code: "NZD", symbol: "NZ$", name: "New Zealand Dollar" },
+    { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
+    { code: "HKD", symbol: "HK$", name: "Hong Kong Dollar" },
+    { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
+    { code: "INR", symbol: "₹", name: "Indian Rupee" },
+    { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
+    { code: "SAR", symbol: "﷼", name: "Saudi Riyal" },
+    { code: "TRY", symbol: "₺", name: "Turkish Lira" },
+    { code: "RUB", symbol: "₽", name: "Russian Ruble" },
+    { code: "BRL", symbol: "R$", name: "Brazilian Real" },
+    { code: "MXN", symbol: "MX$", name: "Mexican Peso" },
+    { code: "ZAR", symbol: "R", name: "South African Rand" },
+    { code: "SEK", symbol: "kr", name: "Swedish Krona" },
+    { code: "NOK", symbol: "kr", name: "Norwegian Krone" },
+    { code: "DKK", symbol: "kr", name: "Danish Krone" },
+    { code: "PLN", symbol: "zł", name: "Polish Zloty" },
+    { code: "CZK", symbol: "Kč", name: "Czech Koruna" },
+    { code: "HUF", symbol: "Ft", name: "Hungarian Forint" },
+    { code: "THB", symbol: "฿", name: "Thai Baht" },
+    { code: "IDR", symbol: "Rp", name: "Indonesian Rupiah" },
+    { code: "MYR", symbol: "RM", name: "Malaysian Ringgit" },
+    { code: "PHP", symbol: "₱", name: "Philippine Peso" },
+    { code: "KRW", symbol: "₩", name: "South Korean Won" },
+    { code: "VND", symbol: "₫", name: "Vietnamese Dong" },
+    { code: "EGP", symbol: "E£", name: "Egyptian Pound" },
+    { code: "MAD", symbol: "DH", name: "Moroccan Dirham" },
+    { code: "ARS", symbol: "$", name: "Argentine Peso" },
+    { code: "CLP", symbol: "$", name: "Chilean Peso" },
+    { code: "COP", symbol: "$", name: "Colombian Peso" },
+    { code: "ISK", symbol: "kr", name: "Icelandic Krona" },
+  ];
+  const CURRENCY = CURRENCIES.reduce((m, c) => ((m[c.code] = c.symbol), m), {});
+  function currencyLabel(code) {
+    return `${CURRENCY[code] || ""} ${code}`.trim();
+  }
+  let defaultCurrency = "USD";
   const METHOD_LABEL = { cash: "💵 Cash", card: "💳 Card", transfer: "🏦 Bank transfer" };
   const METHOD_PLAIN = { cash: "Cash", card: "Card", transfer: "Bank transfer" };
   const CATEGORY_LABEL = {
@@ -76,8 +133,8 @@
     carrent: "Car rent",
     other: "Other",
   };
-  const SUBCATEGORY_LABEL = { train: "🚆 Train" };
-  const SUBCATEGORY_PLAIN = { train: "Train" };
+  const SUBCATEGORY_LABEL = { train: "🚆 Train", toll: "🛣️ Toll" };
+  const SUBCATEGORY_PLAIN = { train: "Train", toll: "Toll" };
   const DEFAULT_CARD = "4255";
 
   // ---- form selection state --------------------------------------------
@@ -208,13 +265,28 @@
     els.cardPicker.hidden = !isCard;
     if (isCard) setCard(sel.card || DEFAULT_CARD);
   }
+  function populateCurrencyOptions(selectEl) {
+    selectEl.innerHTML = "";
+    for (const c of CURRENCIES) {
+      const opt = document.createElement("option");
+      opt.value = c.code;
+      opt.textContent = `${c.code} — ${c.name}${c.symbol ? " (" + c.symbol + ")" : ""}`;
+      selectEl.append(opt);
+    }
+  }
+  function updateDefaultCurrencyButton() {
+    els.curDefault.textContent = currencyLabel(defaultCurrency);
+    els.curDefault.dataset.currency = defaultCurrency;
+  }
   function setCurrency(currency) {
     sel.currency = currency;
-    $$(".cur").forEach((b) => {
-      const on = b.dataset.currency === currency;
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-pressed", String(on));
-    });
+    const isDefault = currency === defaultCurrency;
+    els.curDefault.classList.toggle("active", isDefault);
+    els.curDefault.setAttribute("aria-pressed", String(isDefault));
+    els.curOther.classList.toggle("active", !isDefault);
+    els.curOther.setAttribute("aria-pressed", String(!isDefault));
+    els.currencySelect.hidden = isDefault;
+    if (!isDefault) els.currencySelect.value = currency;
   }
   function setCard(card) {
     sel.card = card;
@@ -227,18 +299,29 @@
     $$(".cat").forEach((b) => b.classList.toggle("active", b.dataset.cat === category));
     const isOther = category === "other";
     els.otherTypes.hidden = !isOther;
-    if (!isOther) setSubcategory(null);
+    if (!isOther) setSubcategory("");
   }
-  function setSubcategory(sub) {
-    sel.subcategory = sub;
-    $$(".subcat").forEach((b) => b.classList.toggle("active", b.dataset.sub === sub));
+  // subcategory is free text; the Train / Toll buttons are quick fills.
+  function setSubcategory(text) {
+    const val = text || "";
+    sel.subcategory = val;
+    if (els.otherText.value !== val) els.otherText.value = val;
+    $$(".subcat").forEach((b) =>
+      b.classList.toggle("active", b.dataset.sub.toLowerCase() === val.trim().toLowerCase())
+    );
   }
   function categoryText(p) {
-    if (p.category === "other") return SUBCATEGORY_LABEL[p.subcategory] || "Other";
+    if (p.category === "other") {
+      const s = (p.subcategory || "").trim();
+      return SUBCATEGORY_LABEL[s.toLowerCase()] || s || "Other";
+    }
     return CATEGORY_LABEL[p.category] || "";
   }
   function categoryPlain(p) {
-    if (p.category === "other") return SUBCATEGORY_PLAIN[p.subcategory] || "Other";
+    if (p.category === "other") {
+      const s = (p.subcategory || "").trim();
+      return SUBCATEGORY_PLAIN[s.toLowerCase()] || s || "Other";
+    }
     return CATEGORY_PLAIN[p.category] || "";
   }
 
@@ -323,6 +406,48 @@
     return els.timeNa.getAttribute("aria-pressed") === "true";
   }
 
+  // ---- location (geolocation + reverse geocode, best-effort) -----------
+  let lastDetectedLocation = "";
+  let locationAttempted = false;
+
+  function applyDetectedLocation(place) {
+    lastDetectedLocation = place;
+    // Only fill if the user hasn't typed their own location.
+    if (!els.location.value || els.location.dataset.auto === "1") {
+      els.location.value = place;
+      els.location.dataset.auto = "1";
+    }
+  }
+  function detectLocation() {
+    if (!("geolocation" in navigator)) {
+      els.location.placeholder = "Type a location";
+      return;
+    }
+    locationAttempted = true;
+    els.location.placeholder = "Detecting current location…";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const coords = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
+        fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        )
+          .then((r) => r.json())
+          .then((j) => {
+            const place = [j.city || j.locality || j.principalSubdivision, j.countryName]
+              .filter(Boolean)
+              .join(", ");
+            applyDetectedLocation(place || coords);
+          })
+          .catch(() => applyDetectedLocation(coords));
+      },
+      () => {
+        els.location.placeholder = "Type a location";
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+    );
+  }
+
   function resetForm() {
     editingId = null;
     els.formTitle.textContent = "New payment";
@@ -332,6 +457,9 @@
     els.date.value = todayISO();
     setTimeNotRelevant(false);
     els.time.value = nowHM();
+    els.location.value = lastDetectedLocation || "";
+    els.location.dataset.auto = lastDetectedLocation ? "1" : "0";
+    if (!lastDetectedLocation && !locationAttempted) detectLocation();
     els.amount.value = "";
     closeKeypad();
     sel.method = null;
@@ -340,8 +468,8 @@
     sel.category = null;
     $$(".cat").forEach((b) => b.classList.remove("active"));
     els.otherTypes.hidden = true;
-    setSubcategory(null);
-    setCurrency("USD");
+    setSubcategory("");
+    setCurrency(defaultCurrency);
     setCard(DEFAULT_CARD);
     setStagedPhoto(null);
     clearError();
@@ -362,8 +490,10 @@
     } else {
       setTimeNotRelevant(true);
     }
+    els.location.value = p.location || "";
+    els.location.dataset.auto = "0";
     els.amount.value = p.amount != null ? String(p.amount) : "";
-    setCurrency(p.currency || "USD");
+    setCurrency(p.currency || defaultCurrency);
     if (p.method) setMethod(p.method);
     else {
       sel.method = null;
@@ -377,7 +507,7 @@
       $$(".cat").forEach((b) => b.classList.remove("active"));
       els.otherTypes.hidden = true;
     }
-    if (p.category === "other") setSubcategory(p.subcategory || null);
+    if (p.category === "other") setSubcategory(p.subcategory || "");
     setStagedPhoto(p.hasPhoto ? { thumb: p.thumb, existing: true } : null);
     clearError();
     closeKeypad();
@@ -418,12 +548,13 @@
       createdAt: existing ? existing.createdAt : Date.now(),
       date: els.date.value,
       time: isTimeNotRelevant() ? "" : els.time.value || "",
+      location: els.location.value.trim(),
       method: sel.method,
       amount,
       currency: sel.currency,
       card: sel.method === "card" ? sel.card : "",
       category: sel.category,
-      subcategory: sel.category === "other" ? sel.subcategory || "" : "",
+      subcategory: sel.category === "other" ? sel.subcategory.trim() : "",
       thumb: "",
       hasPhoto: false,
     };
@@ -563,6 +694,13 @@
 
       info.append(topLine, metaLine);
 
+      if (p.location) {
+        const locLine = document.createElement("span");
+        locLine.className = "item-loc";
+        locLine.textContent = "📍 " + p.location;
+        info.append(locLine);
+      }
+
       const del = document.createElement("button");
       del.type = "button";
       del.className = "item-del";
@@ -646,12 +784,13 @@
 
     // ----- table -----
     const cols = [
-      { key: "date", label: "Date", w: 92 },
-      { key: "time", label: "Time", w: 42 },
-      { key: "amount", label: "Amount", w: 68, align: "right" },
-      { key: "type", label: "Type", w: 92 },
-      { key: "method", label: "Card / method", w: 108 },
-      { key: "receipt", label: "Receipt", w: 74 },
+      { key: "date", label: "Date", w: 80 },
+      { key: "time", label: "Time", w: 34 },
+      { key: "amount", label: "Amount", w: 60, align: "right" },
+      { key: "type", label: "Type", w: 72 },
+      { key: "location", label: "Location", w: 84 },
+      { key: "method", label: "Card / method", w: 92 },
+      { key: "receipt", label: "Receipt", w: 44 },
     ];
     const rowH = 40;
     const startX = M;
@@ -691,6 +830,7 @@
         time: p.time || "—",
         amount: formatAmount(p),
         type: categoryPlain(p),
+        location: p.location || "—",
         method: methodCardText(p),
       };
       for (const c of cols) {
@@ -731,7 +871,7 @@
 
       for (const p of withPhotos) {
         doc.addPage();
-        const caption = `${formatDate(p.date)}${p.time ? " · " + p.time : ""}  —  ${formatAmount(p)}  ·  ${categoryPlain(p)}  ·  ${methodCardText(p)}`;
+        const caption = `${formatDate(p.date)}${p.time ? " · " + p.time : ""}  —  ${formatAmount(p)}  ·  ${categoryPlain(p)}  ·  ${methodCardText(p)}${p.location ? "  ·  " + p.location : ""}`;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(grey[0], grey[1], grey[2]);
@@ -799,21 +939,87 @@
 
     els.exportBtn.addEventListener("click", exportTrip);
 
-    els.photoInput.addEventListener("change", (e) => {
+    // Location.
+    els.locationBtn.addEventListener("click", () => {
+      els.location.dataset.auto = "1";
+      detectLocation();
+    });
+    els.location.addEventListener("input", () => {
+      els.location.dataset.auto = "0";
+    });
+
+    // Currency: default button, Other, and the full list.
+    els.curDefault.addEventListener("click", () => setCurrency(defaultCurrency));
+    els.curOther.addEventListener("click", () => {
+      let code = els.currencySelect.value;
+      if (!code || code === defaultCurrency) {
+        const alt = CURRENCIES.find((c) => c.code !== defaultCurrency);
+        code = alt ? alt.code : defaultCurrency;
+        els.currencySelect.value = code;
+      }
+      setCurrency(code);
+    });
+    els.currencySelect.addEventListener("change", () => setCurrency(els.currencySelect.value));
+
+    // Type "Other" free-text.
+    els.otherText.addEventListener("input", () => setSubcategory(els.otherText.value));
+
+    // Receipt: camera + upload.
+    els.cameraInput.addEventListener("change", (e) => {
+      handlePhoto(e.target.files && e.target.files[0]);
+      e.target.value = "";
+    });
+    els.uploadInput.addEventListener("change", (e) => {
       handlePhoto(e.target.files && e.target.files[0]);
       e.target.value = "";
     });
     els.photoRemove.addEventListener("click", () => setStagedPhoto(null));
+
+    // Settings.
+    els.settingsBtn.addEventListener("click", openSettings);
+    els.settingsClose.addEventListener("click", closeSettings);
+    els.settingsOverlay.addEventListener("click", (e) => {
+      if (e.target === els.settingsOverlay) closeSettings();
+    });
+    els.defaultCurrency.addEventListener("change", () => {
+      setDefaultCurrency(els.defaultCurrency.value, true);
+      if (!editingId) setCurrency(defaultCurrency);
+    });
+  }
+
+  // ---- settings ---------------------------------------------------------
+  function setDefaultCurrency(code, persist) {
+    defaultCurrency = code || "USD";
+    updateDefaultCurrencyButton();
+    els.defaultCurrency.value = defaultCurrency;
+    if (persist) Store.setSetting("defaultCurrency", defaultCurrency);
+  }
+  function openSettings() {
+    els.defaultCurrency.value = defaultCurrency;
+    els.settingsOverlay.hidden = false;
+  }
+  function closeSettings() {
+    els.settingsOverlay.hidden = true;
   }
 
   async function init() {
     wire();
-    resetForm();
+    populateCurrencyOptions(els.currencySelect);
+    populateCurrencyOptions(els.defaultCurrency);
     try {
       await Store.init();
     } catch (e) {
       /* Store falls back to memory mode internally */
     }
+    defaultCurrency = Store.getSetting("defaultCurrency", "USD");
+    updateDefaultCurrencyButton();
+    els.defaultCurrency.value = defaultCurrency;
+    // Seed the "Other currency" list with something other than the default.
+    if (els.currencySelect.value === defaultCurrency) {
+      const alt = CURRENCIES.find((c) => c.code !== defaultCurrency);
+      if (alt) els.currencySelect.value = alt.code;
+    }
+    resetForm();
     renderTrips();
     if (Store.activeTripId && activeTrip()) renderPayments();
   }

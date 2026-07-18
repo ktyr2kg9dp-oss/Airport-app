@@ -17,6 +17,7 @@
 </head>
 <body>
   <div class="app">
+    <button type="button" id="settings-btn" class="settings-btn" aria-label="Settings">⚙️</button>
     <header class="brand">
       <h1>Expense Manager <span class="brand-emoji">💳</span></h1>
       <p class="tagline">Log every payment you make on your trip.</p>
@@ -41,20 +42,28 @@
     <form id="expense-form" class="card" autocomplete="off" novalidate hidden>
       <h2 class="card-title" id="form-title">New payment</h2>
 
-      <!-- Date -->
-      <label class="field" for="date">
-        <span class="field-label">Date</span>
-        <input type="date" id="date" name="date" required />
-      </label>
-
-      <!-- Hour -->
-      <div class="field">
-        <span class="field-label">Hour</span>
-        <div class="time-row">
+      <!-- Date + Hour, side by side -->
+      <div class="datetime-row">
+        <label class="field" for="date">
+          <span class="field-label">Date</span>
+          <input type="date" id="date" name="date" required />
+        </label>
+        <div class="field">
+          <span class="field-label">Hour</span>
           <input type="time" id="time" name="time" />
-          <button type="button" id="time-na" class="chip" aria-pressed="false">
+          <button type="button" id="time-na" class="chip time-na" aria-pressed="false">
             Not relevant
           </button>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="field">
+        <span class="field-label">Location</span>
+        <div class="location-row">
+          <input type="text" id="location" name="location" maxlength="120"
+                 placeholder="Detecting current location…" autocomplete="off" />
+          <button type="button" id="location-btn" class="chip" aria-label="Use current location">📍</button>
         </div>
       </div>
 
@@ -65,10 +74,11 @@
           <input type="text" id="amount" name="amount" inputmode="none" readonly
                  placeholder="0.00" autocomplete="off" aria-label="Payment amount" />
           <div class="currency-toggle" role="group" aria-label="Currency">
-            <button type="button" class="cur" data-currency="USD" aria-pressed="true">$ USD</button>
-            <button type="button" class="cur" data-currency="ILS" aria-pressed="false">₪ NIS</button>
+            <button type="button" class="cur" id="cur-default" aria-pressed="true">$ USD</button>
+            <button type="button" class="cur" id="cur-other" aria-pressed="false">Other ▾</button>
           </div>
         </div>
+        <select id="currency-select" class="select currency-select" hidden aria-label="Choose currency"></select>
         <div id="keypad" class="keypad" hidden>
           <button type="button" class="key" data-key="7">7</button>
           <button type="button" class="key" data-key="8">8</button>
@@ -97,7 +107,10 @@
           <button type="button" class="cat cat-other" data-cat="other">⋯ Other</button>
         </div>
         <div id="other-types" class="sub-cats" hidden>
-          <button type="button" class="subcat" data-sub="train">🚆 Train</button>
+          <button type="button" class="subcat" data-sub="Train">🚆 Train</button>
+          <button type="button" class="subcat" data-sub="Toll">🛣️ Toll</button>
+          <input type="text" id="other-text" class="other-text" maxlength="40"
+                 placeholder="Or type the expense type…" autocomplete="off" />
         </div>
       </div>
 
@@ -124,10 +137,16 @@
       <!-- Receipt photo -->
       <div class="field">
         <span class="field-label">Receipt</span>
-        <label class="photo-btn">
-          <span>📷 Take / choose photo</span>
-          <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
-        </label>
+        <div class="receipt-btns">
+          <label class="photo-btn">
+            <span>📷 Take photo</span>
+            <input type="file" id="camera-input" accept="image/*" capture="environment" hidden />
+          </label>
+          <label class="photo-btn">
+            <span>⬆︎ Upload receipt</span>
+            <input type="file" id="upload-input" accept="image/*" hidden />
+          </label>
+        </div>
         <div id="photo-preview" class="photo-preview" hidden>
           <img id="photo-img" alt="Receipt photo" />
           <button type="button" id="photo-remove" class="chip">Remove photo</button>
@@ -159,6 +178,21 @@
       <ul id="list" class="list"></ul>
       <p id="empty" class="empty">No payments yet — add your first one above.</p>
     </section>
+  </div>
+
+  <!-- ============ Settings ============ -->
+  <div id="settings-overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+      <div class="modal-head">
+        <h2 class="card-title">Settings</h2>
+        <button type="button" id="settings-close" class="icon-btn" aria-label="Close settings">✕</button>
+      </div>
+      <div class="field">
+        <span class="field-label">Default currency</span>
+        <select id="default-currency" class="select"></select>
+        <p class="hint">New payments start with this currency.</p>
+      </div>
+    </div>
   </div>
 
   <script src="vendor/jspdf.umd.min.js"></script>

@@ -20,18 +20,24 @@ tallies per trip and jump back and forth at any time.
 
 | Input | Default when the app opens | Notes |
 |-------|----------------------------|-------|
-| **Date** | **Today's date** | Set fresh every time you open the app. |
-| **Hour** | **The current hour** | Tap **Not relevant** if the time doesn't matter — it's saved without an hour. |
-| **Amount** | — | Tap it to open the **built-in number pad**; works on every device and for every method. Includes a **$ USD / ₪ NIS** toggle. |
-| **Type of expense** | — | **🍽️ Food**, **🚕 Uber / taxi**, **🏨 Hotel**, **🚗 Car rent**, or **⋯ Other**. Choosing *Other* reveals sub-types (**🚆 Train**, more later). |
+| **Date** & **Hour** | **Today** / **current hour** | Side by side; tap **Not relevant** (under the hour) to save without a time. |
+| **Location** | **Your current location** | Auto-filled from your location (tap 📍 to refresh); you can also just type a place. |
+| **Amount** | — | Tap it to open the **built-in number pad**. The currency shows your **default** on the left and **Other ▾** on the right, which opens the full currency list. |
+| **Type of expense** | — | **🍽️ Food**, **🚕 Uber / taxi**, **🏨 Hotel**, **🚗 Car rent**, or **⋯ Other**. *Other* offers quick **🚆 Train** / **🛣️ Toll** buttons **and** a free-text box for anything else. |
 | **Payment method** | — | Choose **💵 Cash**, **💳 Card**, or **🏦 Bank transfer**. |
 | **Card** | **•••• 4255** | Shown only for card payments — pick **4255**, **6694**, or **1921**. |
-| **Receipt** | — | Snap a photo with your camera (or attach one). The app keeps a **light thumbnail** for the list plus a **~1600px full image** for export. |
+| **Receipt** | — | **📷 Take photo** or **⬆︎ Upload receipt**. The app keeps a **light thumbnail** for the list plus a **~1600px full image** for export. |
 
 Each saved payment appears in the current trip's **Payments** list, newest
 first, with a running **Total** per currency. **Tap a payment to reopen it** —
 you can fix any field and hit **Save payment** to put it back in the list
 (sorted by date). The **✕** removes a payment.
+
+## Settings
+
+The **⚙️** button (top-right) opens Settings. Currently it holds **Default
+currency** — pick any currency and new payments start with it (shown on the left
+of the currency toggle). More settings can be added here over time.
 
 ## Export a trip (PDF)
 
@@ -39,8 +45,8 @@ The **⬇︎ Export** button (top-right of the payments list) generates a real
 **PDF** for the current trip:
 
 - A summary (payment count + per-currency total).
-- A table of **date, time, amount, type of expense, card / method**, with a
-  small receipt thumbnail per row.
+- A table of **date, time, amount, type of expense, location, card / method**,
+  with a small receipt thumbnail per row.
 - A **Receipts** section where each **full-resolution** receipt is attached on
   its own page, captioned with its payment details.
 

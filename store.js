@@ -22,7 +22,7 @@
   let db = null;
   let memoryMode = false;
 
-  const cache = { trips: [], payments: [], activeTripId: null };
+  const cache = { trips: [], payments: [], activeTripId: null, settings: {} };
   const memPhotos = {}; // paymentId -> full data URL (memory fallback)
 
   function openDB() {
@@ -125,6 +125,19 @@
       cache.payments = await getAll("payments");
       const m = await getOne("meta", "activeTripId");
       cache.activeTripId = m ? m.v : null;
+      const s = await getOne("meta", "settings");
+      cache.settings = s && s.v ? s.v : {};
+    },
+
+    get settings() {
+      return cache.settings;
+    },
+    getSetting(key, fallback) {
+      return key in cache.settings ? cache.settings[key] : fallback;
+    },
+    async setSetting(key, value) {
+      cache.settings[key] = value;
+      if (!memoryMode) await put("meta", { k: "settings", v: cache.settings });
     },
 
     async setActiveTrip(id) {
