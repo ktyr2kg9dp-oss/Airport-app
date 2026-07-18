@@ -109,6 +109,7 @@ body {
 }
 .select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.22); }
 .currency-select { margin-top: 10px; }
+.default-location { margin-top: 10px; }
 
 /* ---- header ---- */
 .brand { text-align: center; padding: 22px 0 16px; }

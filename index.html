@@ -192,6 +192,21 @@
         <select id="default-currency" class="select"></select>
         <p class="hint">New payments start with this currency.</p>
       </div>
+      <div class="field">
+        <span class="field-label">Location</span>
+        <select id="location-mode" class="select">
+          <option value="auto">Auto-detect (use device location)</option>
+          <option value="fixed">Use a fixed default location</option>
+          <option value="off">Don't use location</option>
+        </select>
+        <div id="default-location-row" class="location-row default-location" hidden>
+          <input type="text" id="default-location" maxlength="120"
+                 placeholder="Default location — e.g. Rome, Italy" autocomplete="off" />
+          <button type="button" id="default-location-detect" class="chip" aria-label="Detect location">📍</button>
+        </div>
+        <p class="hint">How the Location field is filled for new payments — pick a fixed
+          location so you're not asked each time.</p>
+      </div>
     </div>
   </div>
 

@@ -28,6 +28,10 @@
     settingsOverlay: $("#settings-overlay"),
     settingsClose: $("#settings-close"),
     defaultCurrency: $("#default-currency"),
+    locationMode: $("#location-mode"),
+    defaultLocationRow: $("#default-location-row"),
+    defaultLocation: $("#default-location"),
+    defaultLocationDetect: $("#default-location-detect"),
 
     newTripBtn: $("#new-trip-btn"),
     newTripRow: $("#new-trip-row"),
@@ -410,21 +414,12 @@
   let lastDetectedLocation = "";
   let locationAttempted = false;
 
-  function applyDetectedLocation(place) {
-    lastDetectedLocation = place;
-    // Only fill if the user hasn't typed their own location.
-    if (!els.location.value || els.location.dataset.auto === "1") {
-      els.location.value = place;
-      els.location.dataset.auto = "1";
-    }
-  }
-  function detectLocation() {
+  // Resolve the device's current place name; calls onPlace(place|null).
+  function reverseGeocode(onPlace) {
     if (!("geolocation" in navigator)) {
-      els.location.placeholder = "Type a location";
+      onPlace(null);
       return;
     }
-    locationAttempted = true;
-    els.location.placeholder = "Detecting current location…";
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -437,15 +432,50 @@
             const place = [j.city || j.locality || j.principalSubdivision, j.countryName]
               .filter(Boolean)
               .join(", ");
-            applyDetectedLocation(place || coords);
+            onPlace(place || coords);
           })
-          .catch(() => applyDetectedLocation(coords));
+          .catch(() => onPlace(coords));
       },
-      () => {
-        els.location.placeholder = "Type a location";
-      },
+      () => onPlace(null),
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
     );
+  }
+
+  function applyDetectedLocation(place) {
+    lastDetectedLocation = place;
+    // Only fill if the user hasn't typed their own location.
+    if (!els.location.value || els.location.dataset.auto === "1") {
+      els.location.value = place;
+      els.location.dataset.auto = "1";
+    }
+  }
+  function detectLocation() {
+    locationAttempted = true;
+    els.location.placeholder = "Detecting current location…";
+    reverseGeocode((place) => {
+      if (place) applyDetectedLocation(place);
+      else els.location.placeholder = "Type a location";
+    });
+  }
+
+  // Fill the form's Location field according to the Settings preference.
+  function applyLocationDefault() {
+    const mode = Store.getSetting("locationMode", "auto");
+    if (mode === "off") {
+      els.location.value = "";
+      els.location.dataset.auto = "0";
+      els.location.placeholder = "Type a location";
+      return;
+    }
+    if (mode === "fixed") {
+      els.location.value = Store.getSetting("defaultLocation", "") || "";
+      els.location.dataset.auto = "1";
+      return;
+    }
+    // auto
+    els.location.value = lastDetectedLocation || "";
+    els.location.dataset.auto = lastDetectedLocation ? "1" : "0";
+    if (!lastDetectedLocation && !locationAttempted) detectLocation();
   }
 
   function resetForm() {
@@ -457,9 +487,7 @@
     els.date.value = todayISO();
     setTimeNotRelevant(false);
     els.time.value = nowHM();
-    els.location.value = lastDetectedLocation || "";
-    els.location.dataset.auto = lastDetectedLocation ? "1" : "0";
-    if (!lastDetectedLocation && !locationAttempted) detectLocation();
+    applyLocationDefault();
     els.amount.value = "";
     closeKeypad();
     sel.method = null;
@@ -985,6 +1013,27 @@
       setDefaultCurrency(els.defaultCurrency.value, true);
       if (!editingId) setCurrency(defaultCurrency);
     });
+    els.locationMode.addEventListener("change", () => {
+      const mode = els.locationMode.value;
+      Store.setSetting("locationMode", mode);
+      els.defaultLocationRow.hidden = mode !== "fixed";
+      if (!editingId) applyLocationDefault();
+    });
+    els.defaultLocation.addEventListener("input", () => {
+      Store.setSetting("defaultLocation", els.defaultLocation.value.trim());
+      if (!editingId && els.locationMode.value === "fixed") applyLocationDefault();
+    });
+    els.defaultLocationDetect.addEventListener("click", () => {
+      els.defaultLocation.placeholder = "Detecting…";
+      reverseGeocode((place) => {
+        els.defaultLocation.placeholder = "Default location — e.g. Rome, Italy";
+        if (place) {
+          els.defaultLocation.value = place;
+          Store.setSetting("defaultLocation", place);
+          if (!editingId && els.locationMode.value === "fixed") applyLocationDefault();
+        }
+      });
+    });
   }
 
   // ---- settings ---------------------------------------------------------
@@ -996,6 +1045,10 @@
   }
   function openSettings() {
     els.defaultCurrency.value = defaultCurrency;
+    const mode = Store.getSetting("locationMode", "auto");
+    els.locationMode.value = mode;
+    els.defaultLocation.value = Store.getSetting("defaultLocation", "") || "";
+    els.defaultLocationRow.hidden = mode !== "fixed";
     els.settingsOverlay.hidden = false;
   }
   function closeSettings() {

@@ -35,9 +35,15 @@ you can fix any field and hit **Save payment** to put it back in the list
 
 ## Settings
 
-The **⚙️** button (top-right) opens Settings. Currently it holds **Default
-currency** — pick any currency and new payments start with it (shown on the left
-of the currency toggle). More settings can be added here over time.
+The **⚙️** button (top-right) opens Settings:
+
+- **Default currency** — pick any currency; new payments start with it (shown on
+  the left of the currency toggle).
+- **Location** — choose how the Location field is filled for new payments:
+  **Auto-detect** (device location), **Use a fixed default location** (type it
+  once — or tap 📍 to set it — so you're never asked again), or **Off**.
+
+More settings can be added here over time.
 
 ## Export a trip (PDF)
 
