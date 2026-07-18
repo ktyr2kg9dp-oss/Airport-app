@@ -135,7 +135,10 @@ body {
   padding: 20px;
   margin-top: 16px;
 }
-.card-title { margin: 0 0 16px; font-size: 1.1rem; }
+.card-title { margin: 0 0 16px; font-size: 1.4rem; font-weight: 700; }
+
+/* Extra breathing room between the Trips library and the New payment form. */
+#expense-form { margin-top: 40px; }
 
 /* ---- form fields ---- */
 .field { display: block; margin-bottom: 18px; }
@@ -427,6 +430,13 @@ body {
   color: #f0fffb;
 }
 .btn.primary:hover { filter: brightness(1.06); }
+
+/* The "Add payment" / "Save payment" button uses the requested solid color. */
+#submit-btn {
+  background: rgb(176, 155, 51);
+  color: #201d05;
+}
+#submit-btn:hover { filter: brightness(1.06); }
 .btn.ghost {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--card-border);
@@ -436,7 +446,7 @@ body {
 
 /* ---- payments list ---- */
 /* Extra breathing room between the New payment form and the payments list. */
-#payments-card { margin-top: 40px; }
+#payments-card { margin-top: 56px; }
 
 .list-head {
   display: flex;
@@ -476,7 +486,7 @@ body {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--card-border);
-  border-left: 4px solid rgb(176, 155, 51);
+  border-left: 4px solid var(--teal);
   animation: pop 0.25s ease;
   cursor: pointer;
   transition: background 0.15s ease;
