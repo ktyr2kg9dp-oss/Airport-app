@@ -42,8 +42,16 @@
   function clearSession() { session = null; localStorage.removeItem(LS_SESSION); }
 
   // ---- auth -------------------------------------------------------------
+  async function safeFetch(url, opts) {
+    try {
+      return await fetch(url, opts);
+    } catch (e) {
+      throw new Error("Couldn't reach the cloud server. Check your internet, and turn off any VPN or ad/tracker blocker (or Brave Shields) for this site, then try again.");
+    }
+  }
+
   async function authFetch(path, body) {
-    const res = await fetch(AUTH_URL + path, {
+    const res = await safeFetch(AUTH_URL + path, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -97,7 +105,7 @@
       { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json" },
       extraHeaders || {}
     );
-    const res = await fetch(REST_URL + path, {
+    const res = await safeFetch(REST_URL + path, {
       method: method,
       headers: headers,
       body: body ? JSON.stringify(body) : undefined,
