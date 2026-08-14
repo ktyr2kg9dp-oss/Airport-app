@@ -1089,15 +1089,42 @@
       els.syncStatus.textContent = "Enter an email and password.";
       return;
     }
-    els.syncStatus.textContent = kind === "signup" ? "Creating account…" : "Signing in…";
+    if (password.length < 6) {
+      els.syncStatus.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+    els.syncStatus.textContent = "Working…";
     els.authSignin.disabled = els.authSignup.disabled = true;
     try {
-      if (kind === "signup") await Cloud.signUp(email, password);
-      else await Cloud.signIn(email, password);
+      if (kind === "signup") {
+        try {
+          await Cloud.signUp(email, password);
+        } catch (e) {
+          const m = (e && e.message) || "";
+          // Already have an account? Just sign in with the same details.
+          if (/already registered|already exists|user already/i.test(m)) {
+            await Cloud.signIn(email, password);
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        try {
+          await Cloud.signIn(email, password);
+        } catch (e) {
+          const m = (e && e.message) || "";
+          if (/invalid login credentials/i.test(m)) {
+            els.syncStatus.textContent =
+              "No account matched. If you're new, tap Create account. Otherwise check your password.";
+            return;
+          }
+          throw e;
+        }
+      }
       els.authPassword.value = "";
       updateAccountUI();
     } catch (e) {
-      els.syncStatus.textContent = (e && e.message ? e.message : "Sign-in failed").slice(0, 160);
+      els.syncStatus.textContent = (e && e.message ? e.message : "Sign-in failed").slice(0, 180);
     } finally {
       els.authSignin.disabled = els.authSignup.disabled = false;
     }
