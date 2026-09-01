@@ -36,6 +36,10 @@
     authSignup: $("#auth-signup"),
     authSignout: $("#auth-signout"),
     syncStatus: $("#sync-status"),
+    backupExport: $("#backup-export"),
+    backupImport: $("#backup-import"),
+    backupFile: $("#backup-file"),
+    backupStatus: $("#backup-status"),
     defaultCurrency: $("#default-currency"),
     locationMode: $("#location-mode"),
     defaultLocationRow: $("#default-location-row"),
@@ -1027,6 +1031,10 @@
     els.authSignup.addEventListener("click", () => doAuth("signup"));
     els.authSignout.addEventListener("click", doSignOut);
 
+    els.backupExport.addEventListener("click", exportBackup);
+    els.backupImport.addEventListener("click", () => els.backupFile.click());
+    els.backupFile.addEventListener("change", importBackup);
+
     els.locationMode.addEventListener("change", () => {
       const mode = els.locationMode.value;
       Store.setSetting("locationMode", mode);
@@ -1133,6 +1141,50 @@
     if (!cloudReady()) return;
     await Cloud.signOut();
     updateAccountUI();
+  }
+
+  // ---- backup / restore (device-to-device, no account needed) ----------
+  async function exportBackup() {
+    try {
+      els.backupStatus.textContent = "Preparing backup…";
+      const data = await Store.exportAll();
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "expense-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      const n = data.trips.length;
+      els.backupStatus.textContent =
+        "Saved a backup of " + n + " trip" + (n === 1 ? "" : "s") +
+        ". Send this file to your other phone, then tap Import there.";
+    } catch (e) {
+      els.backupStatus.textContent = "Export failed: " + (e && e.message ? e.message : e);
+    }
+  }
+
+  async function importBackup(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    els.backupStatus.textContent = "Importing…";
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await Store.importAll(data);
+      renderTrips();
+      if (!activeTrip() && Store.trips.length) await selectTrip(Store.trips[0].id);
+      else if (activeTrip()) renderPayments();
+      els.backupStatus.textContent =
+        "Imported " + res.trips + " trip" + (res.trips === 1 ? "" : "s") +
+        " and " + res.payments + " payment" + (res.payments === 1 ? "" : "s") + ".";
+    } catch (err) {
+      els.backupStatus.textContent = "Import failed: " + (err && err.message ? err.message : err);
+    } finally {
+      e.target.value = "";
+    }
   }
 
   async function init() {

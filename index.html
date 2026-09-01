@@ -204,6 +204,15 @@
         <p class="hint" id="sync-status">Not signed in</p>
       </div>
       <div class="field">
+        <span class="field-label">Backup &amp; move to another phone</span>
+        <div class="auth-actions">
+          <button type="button" id="backup-export" class="btn primary btn-sm">Export backup</button>
+          <button type="button" id="backup-import" class="btn ghost btn-sm">Import backup</button>
+        </div>
+        <input type="file" id="backup-file" accept="application/json,.json" hidden />
+        <p class="hint" id="backup-status">Export saves all trips, expenses &amp; receipts to a file. Send it to your other phone, then Import there.</p>
+      </div>
+      <div class="field">
         <span class="field-label">Default currency</span>
         <select id="default-currency" class="select"></select>
         <p class="hint">New payments start with this currency.</p>

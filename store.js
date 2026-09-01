@@ -250,6 +250,52 @@
         }
       }
     },
+
+    // ---- backup / restore (device-to-device, no network) -----------------
+    async exportAll() {
+      const photos = {};
+      for (const p of cache.payments) {
+        const full = await this.getPhoto(p.id);
+        if (full) photos[p.id] = full;
+      }
+      return {
+        app: "expense-manager",
+        version: 1,
+        exportedAt: Date.now(),
+        trips: cache.trips,
+        payments: cache.payments,
+        photos: photos,
+      };
+    },
+    async importAll(data) {
+      if (!data || !Array.isArray(data.trips) || !Array.isArray(data.payments)) {
+        throw new Error("This file isn't a valid Expense Manager backup.");
+      }
+      let trips = 0;
+      let payments = 0;
+      for (const t of data.trips) {
+        if (!t || !t.id) continue;
+        const existing = cache.trips.find((x) => x.id === t.id);
+        if (!existing || (t.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          await this.applyRemoteUpsert("trips", t);
+        }
+        trips++;
+      }
+      for (const p of data.payments) {
+        if (!p || !p.id) continue;
+        const existing = cache.payments.find((x) => x.id === p.id);
+        if (!existing || (p.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          await this.applyRemoteUpsert("payments", p);
+          const full = data.photos && data.photos[p.id];
+          if (full) {
+            if (memoryMode) memPhotos[p.id] = full;
+            else await put("photos", { id: p.id, full: full });
+          }
+        }
+        payments++;
+      }
+      return { trips: trips, payments: payments };
+    },
   };
 
   window.Store = Store;
