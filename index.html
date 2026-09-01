@@ -2,118 +2,260 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#c2185b" />
-  <title>Cup-Les 💑</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>Expense Manager 💳</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%92%91%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%92%B3%3C/text%3E%3C/svg%3E" />
+  <!-- Install as an app (Add to Home Screen) -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Expenses" />
 </head>
 <body>
   <div class="app">
+    <button type="button" id="settings-btn" class="settings-btn" aria-label="Settings">⚙️</button>
+    <header class="brand">
+      <h1>Expense Manager <span class="brand-emoji">💳</span></h1>
+      <p class="tagline">Log every payment you make on your trip.</p>
+    </header>
 
-    <!-- ============ Screen 1: choose who you are ============ -->
-    <section id="screen-setup" class="screen active">
-      <header class="brand">
-        <h1>Cup&#8209;Les <span class="hearts">💑</span></h1>
-        <p class="tagline">A tiny app just for the two of you.</p>
-      </header>
+    <!-- ============ Trips library ============ -->
+    <section class="card">
+      <div class="list-head">
+        <h2 class="card-title">Trips</h2>
+        <button type="button" id="new-trip-btn" class="chip">+ New trip</button>
+      </div>
+      <div id="new-trip-row" class="new-trip-row" hidden>
+        <input type="text" id="new-trip-name" maxlength="60"
+               placeholder="Trip name — e.g. Grand Canyon trip" autocomplete="off" />
+        <button type="button" id="create-trip-btn" class="btn primary btn-sm">Create</button>
+      </div>
+      <div id="trips" class="trips"></div>
+      <p id="trips-empty" class="empty">No trips yet — create your first trip to start adding payments.</p>
+    </section>
 
-      <div class="card setup-card">
-        <label class="field">
-          <span class="field-label">Your pair code</span>
-          <input id="pair-code" type="text" inputmode="latin" autocomplete="off"
-                 placeholder="e.g. lovebirds" maxlength="40" />
-          <small class="hint">Both of you type the <em>same</em> code so your apps connect.</small>
+    <!-- ============ New / edit payment form ============ -->
+    <form id="expense-form" class="card" autocomplete="off" novalidate hidden>
+      <h2 class="card-title" id="form-title">New payment</h2>
+
+      <!-- Date + Hour, side by side -->
+      <div class="datetime-row">
+        <label class="field" for="date">
+          <span class="field-label">Date</span>
+          <input type="date" id="date" name="date" required />
         </label>
-
-        <p class="who-label">Who are you?</p>
-        <div class="role-choice">
-          <button class="role-btn" data-role="husband">
-            <span class="role-emoji">🤵</span>
-            <span class="role-name">Husband</span>
-          </button>
-          <button class="role-btn" data-role="wife">
-            <span class="role-emoji">👰</span>
-            <span class="role-name">Wife</span>
+        <div class="field">
+          <span class="field-label">Hour</span>
+          <input type="time" id="time" name="time" />
+          <button type="button" id="time-na" class="chip time-na" aria-pressed="false">
+            Not relevant
           </button>
         </div>
-        <p id="setup-error" class="setup-error" hidden></p>
       </div>
-    </section>
 
-    <!-- ============ Screen 2: the wife's app ============ -->
-    <section id="screen-wife" class="screen">
-      <header class="topbar">
-        <button class="link-btn" data-back>‹ Change</button>
-        <div class="status"><span class="dot" id="dot-wife"></span><span id="presence-wife">Connecting…</span></div>
-      </header>
-      <div class="stage">
-        <p class="stage-hint">Send some love to your husband.</p>
-        <button id="btn-bow" class="mega-btn bow" data-send="bow">
-          <span class="mega-emoji">🙇‍♀️</span>
-          <span class="mega-label">BOW</span>
-        </button>
-        <div class="sent-toast" id="toast-wife" hidden></div>
-      </div>
-      <div class="feed-wrap">
-        <h2 class="feed-title">Messages</h2>
-        <ul id="feed-wife" class="feed"></ul>
-      </div>
-    </section>
-
-    <!-- ============ Screen 3: the husband's app ============ -->
-    <section id="screen-husband" class="screen">
-      <header class="topbar">
-        <button class="link-btn" data-back>‹ Change</button>
-        <div class="status"><span class="dot" id="dot-husband"></span><span id="presence-husband">Connecting…</span></div>
-      </header>
-      <div class="stage">
-        <p class="stage-hint">Let her know how you feel.</p>
-        <div class="btn-grid">
-          <button class="action-btn mad" data-send="mad">
-            <span class="action-emoji">😠</span>
-            <span class="action-label">MAD</span>
-          </button>
-          <button class="action-btn bad" data-send="bad">
-            <span class="action-emoji">🙁</span>
-            <span class="action-label">BAD</span>
-          </button>
-          <button class="action-btn cucumber" data-send="cucumber" aria-label="Intimacy">
-            <svg class="cucumber-icon" viewBox="0 0 64 64" aria-hidden="true">
-              <path d="M46 12c1.6-2.4 4.2-4 6.6-3.4 2.2.6 3 3 2.2 5-.7 1.8-2.3 3-3.9 3.7"
-                    fill="none" stroke="currentColor" stroke-width="3.2"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M48 16c6 6 8 15 4.5 24C48 51 37 57 26 55 16 53.2 8.5 45 9 34.5 9.4 25 16 17.5 25 16c6-1 10 .2 14 .8 3 .5 6 .2 9-.8z"
-                    fill="none" stroke="currentColor" stroke-width="3.2"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="24" cy="30" r="1.6" fill="currentColor"/>
-              <circle cx="33" cy="38" r="1.6" fill="currentColor"/>
-              <circle cx="20" cy="40" r="1.6" fill="currentColor"/>
-              <circle cx="30" cy="27" r="1.6" fill="currentColor"/>
-              <circle cx="38" cy="45" r="1.6" fill="currentColor"/>
-            </svg>
-            <span class="action-label">Want you</span>
-          </button>
+      <!-- Location -->
+      <div class="field">
+        <span class="field-label">Location</span>
+        <div class="location-row">
+          <input type="text" id="location" name="location" maxlength="120"
+                 placeholder="Detecting current location…" autocomplete="off" />
+          <button type="button" id="location-btn" class="chip" aria-label="Use current location">📍</button>
         </div>
-        <div class="sent-toast" id="toast-husband" hidden></div>
       </div>
-      <div class="feed-wrap">
-        <h2 class="feed-title">Messages</h2>
-        <ul id="feed-husband" class="feed"></ul>
-      </div>
-    </section>
 
+      <!-- Amount + currency (built-in number pad, shown for every method) -->
+      <div class="field">
+        <span class="field-label">Amount</span>
+        <div class="amount-row">
+          <input type="text" id="amount" name="amount" inputmode="none" readonly
+                 placeholder="0.00" autocomplete="off" aria-label="Payment amount" />
+          <div class="currency-toggle" role="group" aria-label="Currency">
+            <button type="button" class="cur" id="cur-default" aria-pressed="true">$ USD</button>
+            <button type="button" class="cur" id="cur-other" aria-pressed="false">Other ▾</button>
+          </div>
+        </div>
+        <select id="currency-select" class="select currency-select" hidden aria-label="Choose currency"></select>
+        <div id="keypad" class="keypad" hidden>
+          <button type="button" class="key" data-key="7">7</button>
+          <button type="button" class="key" data-key="8">8</button>
+          <button type="button" class="key" data-key="9">9</button>
+          <button type="button" class="key" data-key="4">4</button>
+          <button type="button" class="key" data-key="5">5</button>
+          <button type="button" class="key" data-key="6">6</button>
+          <button type="button" class="key" data-key="1">1</button>
+          <button type="button" class="key" data-key="2">2</button>
+          <button type="button" class="key" data-key="3">3</button>
+          <button type="button" class="key" data-key=".">.</button>
+          <button type="button" class="key" data-key="0">0</button>
+          <button type="button" class="key key-back" data-key="back" aria-label="Delete">⌫</button>
+          <button type="button" class="key key-done" data-key="done">Done</button>
+        </div>
+      </div>
+
+      <!-- Type of expense -->
+      <div class="field">
+        <span class="field-label">Type of expense</span>
+        <div class="categories" role="group" aria-label="Type of expense">
+          <button type="button" class="cat" data-cat="food">🍽️ Food</button>
+          <button type="button" class="cat" data-cat="taxi">🚕 Uber / taxi</button>
+          <button type="button" class="cat" data-cat="hotel">🏨 Hotel</button>
+          <button type="button" class="cat" data-cat="carrent">🚗 Car rent</button>
+          <button type="button" class="cat cat-other" data-cat="other">⋯ Other</button>
+        </div>
+        <div id="other-types" class="sub-cats" hidden>
+          <button type="button" class="subcat" data-sub="Train">🚆 Train</button>
+          <button type="button" class="subcat" data-sub="Toll">🛣️ Toll</button>
+          <input type="text" id="other-text" class="other-text" maxlength="40"
+                 placeholder="Or type the expense type…" autocomplete="off" />
+        </div>
+      </div>
+
+      <!-- Payment method -->
+      <div class="field">
+        <span class="field-label">Payment method</span>
+        <div class="segmented" role="group" aria-label="Payment method">
+          <button type="button" class="seg" data-method="cash">💵 Cash</button>
+          <button type="button" class="seg" data-method="card">💳 Card</button>
+          <button type="button" class="seg" data-method="transfer">🏦 Bank transfer</button>
+        </div>
+      </div>
+
+      <!-- Card endings: only when "Card" is selected -->
+      <div id="card-picker" class="field" hidden>
+        <span class="field-label">Which card?</span>
+        <div class="card-endings" role="group" aria-label="Card ending">
+          <button type="button" class="card-btn" data-card="4255">•••• 4255</button>
+          <button type="button" class="card-btn" data-card="6694">•••• 6694</button>
+          <button type="button" class="card-btn" data-card="1921">•••• 1921</button>
+        </div>
+      </div>
+
+      <!-- Receipt photo -->
+      <div class="field">
+        <span class="field-label">Receipt</span>
+        <div class="receipt-btns">
+          <label class="photo-btn">
+            <span>📷 Take photo</span>
+            <input type="file" id="camera-input" accept="image/*" capture="environment" hidden />
+          </label>
+          <label class="photo-btn">
+            <span>⬆︎ Upload receipt</span>
+            <input type="file" id="upload-input" accept="image/*" hidden />
+          </label>
+        </div>
+        <div id="photo-preview" class="photo-preview" hidden>
+          <img id="photo-img" alt="Receipt photo" />
+          <button type="button" id="photo-remove" class="chip">Remove photo</button>
+        </div>
+      </div>
+
+      <p id="form-error" class="form-error" hidden></p>
+
+      <div class="form-actions">
+        <button type="submit" class="btn primary" id="submit-btn">Add payment</button>
+        <button type="button" id="cancel-btn" class="btn ghost" hidden>Cancel</button>
+        <button type="button" id="reset-btn" class="btn ghost">Reset</button>
+      </div>
+    </form>
+
+    <!-- ============ Saved payments ============ -->
+    <section class="card" id="payments-card" hidden>
+      <div class="list-head">
+        <h2 class="card-title" id="payments-title">Payments</h2>
+        <div class="head-actions">
+          <button type="button" id="export-btn" class="chip" hidden>⬇︎ Export</button>
+          <span class="count" id="count">0</span>
+        </div>
+      </div>
+      <div class="total-row" id="total-row" hidden>
+        <span>Total</span>
+        <span id="total" class="total"></span>
+      </div>
+      <ul id="list" class="list"></ul>
+      <p id="empty" class="empty">No payments yet — add your first one above.</p>
+    </section>
   </div>
 
-  <!-- Incoming-message banner (shared by both roles) -->
-  <div id="banner" class="banner" hidden>
-    <div class="banner-inner">
-      <span id="banner-title" class="banner-title"></span>
-      <span id="banner-text" class="banner-text"></span>
+  <!-- ============ Settings ============ -->
+  <div id="settings-overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+      <div class="modal-head">
+        <h2 class="card-title">Settings</h2>
+        <button type="button" id="settings-close" class="icon-btn" aria-label="Close settings">✕</button>
+      </div>
+      <div class="field">
+        <span class="field-label">Cloud sync</span>
+        <div id="account-signedout" class="auth-form">
+          <input type="email" id="auth-email" class="select" placeholder="you@example.com" autocomplete="username" />
+          <input type="password" id="auth-password" class="select" placeholder="Password (min 6 characters)" autocomplete="current-password" />
+          <div class="auth-actions">
+            <button type="button" id="auth-signin" class="btn primary btn-sm">Sign in</button>
+            <button type="button" id="auth-signup" class="btn ghost btn-sm">Create account</button>
+          </div>
+        </div>
+        <div id="account-signedin" class="auth-form" hidden>
+          <p class="hint" id="account-email"></p>
+          <button type="button" id="auth-signout" class="btn ghost btn-sm">Sign out</button>
+        </div>
+        <p class="hint" id="sync-status">Not signed in</p>
+      </div>
+      <div class="field">
+        <span class="field-label">Backup &amp; move to another phone</span>
+        <div class="auth-actions">
+          <button type="button" id="backup-export" class="btn primary btn-sm">Export backup</button>
+          <button type="button" id="backup-import" class="btn ghost btn-sm">Import backup</button>
+        </div>
+        <input type="file" id="backup-file" accept="application/json,.json" hidden />
+        <p class="hint" id="backup-status">Export saves all trips, expenses &amp; receipts to a file. Send it to your other phone, then Import there.</p>
+      </div>
+      <div class="field">
+        <span class="field-label">Default currency</span>
+        <select id="default-currency" class="select"></select>
+        <p class="hint">New payments start with this currency.</p>
+      </div>
+      <div class="field">
+        <span class="field-label">Location</span>
+        <select id="location-mode" class="select">
+          <option value="auto">Auto-detect (use device location)</option>
+          <option value="fixed">Use a fixed default location</option>
+          <option value="off">Don't use location</option>
+        </select>
+        <div id="default-location-row" class="location-row default-location" hidden>
+          <input type="text" id="default-location" maxlength="120"
+                 placeholder="Default location — e.g. Rome, Italy" autocomplete="off" />
+          <button type="button" id="default-location-detect" class="chip" aria-label="Detect location">📍</button>
+        </div>
+        <p class="hint">How the Location field is filled for new payments — pick a fixed
+          location so you're not asked each time.</p>
+      </div>
     </div>
   </div>
 
-  <script src="data.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="store.js"></script>
+  <script src="cloud.js"></script>
   <script src="app.js"></script>
+  <script>
+    // Register the service worker so the app installs and works offline.
+    // When a new version takes control, reload once so the update shows right away.
+    if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (refreshing) return;
+        refreshing = true;
+        location.reload();
+      });
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          // Check for an updated service worker on each launch.
+          reg.update();
+        }).catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 {
-  "name": "cup-les",
+  "name": "expense-manager",
   "version": "1.0.0",
   "private": true,
-  "description": "Cup-Les — a tiny two-phone messaging app for couples",
+  "description": "Expense Manager — log the payments you make while travelling",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
